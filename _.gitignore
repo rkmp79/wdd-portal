@@ -1,0 +1,31 @@
+# ---------------------------------------------------------------
+# Keep your DATA out of GitHub.
+# The portal stores everything in your browser, not in this repo -
+# but backups and exports you download contain that data, so they
+# must never be committed. (Note: the web "Upload files" button on
+# github.com ignores this file - only drag in index.html, README.md
+# and .gitignore. This file protects you when you use git or
+# GitHub Desktop.)
+# ---------------------------------------------------------------
+
+# Backup files (the portal names them like WDD_OPS_AutoBackup_17-11-2026.JSON)
+*.json
+*.JSON
+*.bak
+*Backup*
+*backup*
+
+# Exports and generated forms
+*.xlsx
+*.xls
+*.csv
+*.docx
+*.doc
+*.pdf
+*.zip
+~$*
+
+# Operating system / editor clutter
+Thumbs.db
+desktop.ini
+.DS_Store

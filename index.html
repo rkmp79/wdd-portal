@@ -7810,13 +7810,14 @@ html.wdd-unlocked #wddPinLock{display:none}
         // copy rather than going stale. WDD_BUILD_VERSION is a simple
         // human-readable label (bump it on meaningful rounds of changes);
         // WDD_BUILD_NUMBER/TIMESTAMP track the exact edit.
-        const WDD_BUILD_VERSION = "v3.02";
-        const WDD_BUILD_TIMESTAMP = "2026-11-18 09:40 local time (UTC+03:00)";
-        const WDD_BUILD_NUMBER = "20261118.0940";
+        const WDD_BUILD_VERSION = "v3.03";
+        const WDD_BUILD_TIMESTAMP = "2026-11-19 07:37 local time (UTC+03:00)";
+        const WDD_BUILD_NUMBER = "20261119.0737";
         // REQUIRED BUILD CHANGELOG: update this list and the build number /
         // timestamp every time the HTML build is changed. On first load of a
         // new build, the entry is persisted to the Activity Log's Updated Values.
         const WDD_BUILD_CHANGES = [
+            "Data Assistant: new answers (EWA QC requests / pending / points / by engineer, NHC not yet submitted, last backup, Maintenance by requested person / surveyor / type, active jobs); ready-to-copy drafts built from the real numbers (weekly / monthly summary, NHC submission email, EWA QC status email, reminder to a contractor); and a 📋 AI button that builds an anonymisable summary to paste into any AI chat - all computed locally, nothing is sent anywhere",
             "Security: PIN lock - the portal asks for a PIN when it is opened (default 1122, stored only as a salted hash and kept out of backups); 5 wrong tries pause entry for 30 seconds; new 🔒 Lock button in the top bar; Backup & Safety panel has Lock now and Change PIN. This keeps casual visitors out - it is not strong security",
             "Maintenance Survey: Surveyor column content is now left-aligned in the Active and Completed Maintenance Jobs tables (like Requested Person and Contractor)",
             "Backup & Safety: the top-bar backup chip now reads the folder backup, daily download and manual backup (minutes/hours/days ago, green/amber/red) and opens a Backup & Safety panel with last-backup times, a reminder to keep a copy away from this laptop, Download full backup, Back up to folder, and Check a backup file / Check latest folder backup (read-only comparison of the backup with the app's current data)",
@@ -30006,6 +30007,7 @@ html.wdd-unlocked #wddPinLock{display:none}
   <div id="wddChatHeader">
     <div class="title">🤖 Data Assistant</div>
     <div class="hdr-actions">
+      <button class="wdd-clear-btn" title="Build a summary of your data to paste into an AI chat (nothing is sent from here)" onclick="wddAssistCopyOpen()">📋 AI</button>
       <button class="wdd-clear-btn" title="Clear chat" onclick="wddClearChat()">Clear</button>
       <button id="wddChatExpandBtn" title="Expand window" onclick="wddToggleChatExpand()">⤢</button>
       <button onclick="wddToggleChat()">✕</button>
@@ -30886,6 +30888,13 @@ html.wdd-unlocked #wddPinLock{display:none}
     "LOOK UP A PROJECT:\n"+
     "• Just type a project number, e.g. WRW20260700030\n"+
     "• WRW202305-0119 total main pipe length\n\n"+
+    "EWA QC, SUBMISSION, DRAFTS, AI:\n"+
+    "• EWA QC pending / EWA QC requests this month / EWA QC points in November / EWA QC by engineer\n"+
+    "• NHC not submitted (records without a Submission Date, from Sep 2026)\n"+
+    "• Maintenance jobs by requested person / by surveyor / by type / active maintenance jobs\n"+
+    "• Last backup\n"+
+    "• Draft weekly summary / monthly summary / NHC submission email / EWA QC status email / reminder to <contractor>\n"+
+    "• Copy for AI (or the 📋 AI button) — prepares a summary to paste into an AI chat\n\n"+
     "SPECIAL:\n"+
     "• Latest NHC connection\n"+
     "• House connection count including meters in manifold (vs. plain \"NHC record count\")\n"+
@@ -31001,6 +31010,9 @@ html.wdd-unlocked #wddPinLock{display:none}
   function answerQuestion(qOriginal){
     const qNorm = norm(qOriginal);
     if(!qNorm) return "Ask me something about the projects, QC, NHC, maintenance, notes, or contacts data.";
+
+    // Extras: EWA QC / NHC-submission / backup answers, draft emails & summaries, Copy for AI.
+    try{ const extra = window.wddAssistExtra ? window.wddAssistExtra(qOriginal, qNorm) : null; if(extra) return extra; }catch(e){ console.warn('assistant extras', e); }
 
     const contactsAnswer = answerContactsQuery(qOriginal, qNorm);
     if(contactsAnswer) return contactsAnswer;
@@ -31460,6 +31472,9 @@ html.wdd-unlocked #wddPinLock{display:none}
     "Which are In Progress?",
     "Total M150",
     "Latest NHC connection",
+    "Weekly summary draft",
+    "EWA QC pending",
+    "NHC not submitted",
     "Help"
   ];
 
@@ -31716,7 +31731,318 @@ html.wdd-unlocked #wddPinLock{display:none}
     }catch(e){
       answer = "Sorry, something went wrong answering that. Try rephrasing, or ask \"help\" for examples.";
     }
-    setTimeout(function(){ addMessage(answer, 'bot'); }, 150);
+    setTimeout(function(){
+      if(answer && typeof answer === 'object' && answer.rich && window.wddAssistAddRich) window.wddAssistAddRich(answer);
+      else addMessage(answer, 'bot');
+    }, 150);
+  };
+})();
+</script>
+<script>
+/* ===== Data Assistant extras: EWA QC / NHC-submission / backup answers, draft emails & summaries,
+   and "Copy for AI chat". Everything is computed locally from the data in this browser - nothing
+   is sent anywhere. Hooked in from answerQuestion() / wddSendChat() above. ===== */
+(function () {
+  "use strict";
+  var MN = ["january","february","march","april","may","june","july","august","september","october","november","december"];
+  var MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  function pad(n){ return (n < 10 ? "0" : "") + n; }
+  function iso(d){ return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function dmy(s){ s = String(s || ""); return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(8, 10) + "-" + s.slice(5, 7) + "-" + s.slice(0, 4) : s; }
+  function clean(v){ return String(v == null ? "" : v).trim(); }
+  function isPh(v){ try { return typeof isPlaceholderValue === "function" && isPlaceholderValue(v); } catch (e) { return false; } }
+  function real(v){ v = clean(v); return v && !isPh(v) ? v : ""; }
+  function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function REG(){ try { return Array.isArray(records) ? records : []; } catch (e) { return []; } }
+  function NHC(){ try { return Array.isArray(nhcRecords) ? nhcRecords : []; } catch (e) { return []; } }
+  function MS(){ try { return Array.isArray(msRecords) ? msRecords : []; } catch (e) { return []; } }
+  function EW(){ try { return Array.isArray(ewaqcRecords) ? ewaqcRecords : []; } catch (e) { return []; } }
+  function inR(d, from, to){ d = String(d || "").slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(d) && d >= from && d <= to; }
+  function groupCount(list, keyFn){
+    var m = {}; list.forEach(function (r) { var k = keyFn(r); if (k === "" || k == null) return; m[k] = (m[k] || 0) + 1; });
+    return Object.keys(m).map(function (k) { return [k, m[k]]; }).sort(function (a, b) { return b[1] - a[1] || String(a[0]).localeCompare(String(b[0])); });
+  }
+  function engSplit(v){ return String(v || "").split(/\s*[,;&]\s*/).map(clean).filter(Boolean); }
+
+  // ---- period from the wording of the question ----
+  function parsePeriod(q, dflt){
+    var now = new Date(), y = now.getFullYear(), m = now.getMonth();
+    var ym = q.match(/\b(20\d\d)\b/), yr = ym ? Number(ym[1]) : null;
+    var mm = q.match(/\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/);
+    function monthRange(yy, mi){ var from = new Date(yy, mi, 1), to = new Date(yy, mi + 1, 0); return { from: iso(from), to: iso(to), label: MON[mi] + " " + yy }; }
+    if (/\blast\s+week\b/.test(q)) { var t2 = new Date(now); t2.setDate(t2.getDate() - 7); var f2 = new Date(t2); f2.setDate(f2.getDate() - 6); return { from: iso(f2), to: iso(t2), label: dmy(iso(f2)) + " to " + dmy(iso(t2)) }; }
+    if (/\b(this\s+week|weekly|last\s*7\s*days|past\s+week|week)\b/.test(q) && !mm) { var f = new Date(now); f.setDate(f.getDate() - 6); return { from: iso(f), to: iso(now), label: dmy(iso(f)) + " to " + dmy(iso(now)) }; }
+    if (/\blast\s+month\b/.test(q)) { var d = new Date(y, m - 1, 1); return monthRange(d.getFullYear(), d.getMonth()); }
+    if (mm) return monthRange(yr || y, MON.map(function (x) { return x.toLowerCase(); }).indexOf(mm[1].slice(0, 3)));
+    if (/\bthis\s+month\b|\bmonthly\b/.test(q)) return monthRange(y, m);
+    if (yr || /\bthis\s+year\b|\byear\b/.test(q)) { var Y = yr || y; return { from: Y + "-01-01", to: Y + "-12-31", label: String(Y) }; }
+    if (dflt === "week") { var f3 = new Date(now); f3.setDate(f3.getDate() - 6); return { from: iso(f3), to: iso(now), label: dmy(iso(f3)) + " to " + dmy(iso(now)) }; }
+    if (dflt === "year") return { from: y + "-01-01", to: y + "-12-31", label: String(y) };
+    return monthRange(y, m);
+  }
+  function msDates(r){ return { req: String(r["Request Date"] || "").slice(0, 10), sur: String(r["Survey Date"] || r["Survey End"] || "").slice(0, 10) }; }
+
+  // ---- figures for a period (used by the summaries) ----
+  function stats(p){
+    var ms = MS(), ew = EW(), nh = NHC(), reg = REG();
+    var msReq = ms.filter(function (r) { return inR(msDates(r).req, p.from, p.to); });
+    var msSur = ms.filter(function (r) { return inR(msDates(r).sur, p.from, p.to); });
+    var ewReq = ew.filter(function (r) { return inR(r.reqDate, p.from, p.to); });
+    var ewSur = ew.filter(function (r) { return inR(r.surveyDate, p.from, p.to); });
+    var nhAdd = nh.filter(function (r) { return inR(r["Date"], p.from, p.to); });
+    var nhSub = nh.filter(function (r) { return inR(r["Submission Date"], p.from, p.to); });
+    var regSur = reg.filter(function (r) { return inR(r["Last Survey"], p.from, p.to); });
+    var pend = []; try { pend = nhcPendingSubmission(); } catch (e) {}
+    return {
+      msReq: msReq.length, msSur: msSur.length, msTypes: groupCount(msSur, function (r) { return real(r["Type"]); }),
+      ewReq: ewReq.length, ewDone: ewReq.filter(function (r) { return clean(r.status) === "Completed"; }).length,
+      ewPoints: ewSur.reduce(function (t, r) { return t + (Number(r.points) || 0); }, 0), ewSur: ewSur.length,
+      nhAdd: nhAdd.length, nhSub: nhSub.length, regSur: regSur.length,
+      nhPending: pend.length,
+      msActive: ms.filter(function (r) { return !msDates(r).sur; }).length,
+      ewPending: ew.filter(function (r) { return clean(r.status) === "Pending"; }).length
+    };
+  }
+
+  // ---- drafts: ready-to-copy text built from the real numbers ----
+  function draftSummary(q){
+    var week = /\b(week|weekly|7\s*days)\b/.test(q) && !/\bmonth/.test(q);
+    var p = parsePeriod(q, week ? "week" : "month"), s = stats(p);
+    var title = (week ? "Weekly" : "Monthly") + " summary - " + p.label;
+    var L = ["Subject: " + (week ? "Weekly" : "Monthly") + " update - " + p.label, "", "Dear all,", "", "Summary of survey operations for " + p.label + ":", ""];
+    L.push("Maintenance Survey", "- Jobs requested: " + s.msReq, "- Jobs surveyed: " + s.msSur + (s.msTypes.length ? " (" + s.msTypes.slice(0, 5).map(function (t) { return t[0] + " " + t[1]; }).join(", ") + ")" : ""), "");
+    L.push("EWA QC", "- Requests received: " + s.ewReq + " (completed " + s.ewDone + ")", "- Surveys done: " + s.ewSur + ", points surveyed: " + s.ewPoints, "");
+    L.push("House connections (NHC)", "- Records added: " + s.nhAdd, "- Submitted to the client: " + s.nhSub, "");
+    L.push("WDD projects", "- Projects with a survey in the period: " + s.regSur, "");
+    L.push("Open items right now", "- NHC records waiting to be submitted (since 01-09-2026): " + s.nhPending, "- Maintenance jobs without a survey date: " + s.msActive, "- EWA QC requests pending: " + s.ewPending, "", "Regards,");
+    return { title: title, text: L.join("\n") };
+  }
+  function draftNhc(){
+    var list = []; try { list = nhcPendingSubmission(); } catch (e) {}
+    var byM = groupCount(list, function (r) { return String(r["Date"]).slice(0, 7); }).sort(function (a, b) { return a[0].localeCompare(b[0]); });
+    var byC = groupCount(list, function (r) { return real(r["Contractor"]) || "Not specified"; });
+    var oldest = list.reduce(function (o, r) { var d = String(r["Date"]).slice(0, 10); return !o || d < o ? d : o; }, "");
+    var L = ["Subject: NHC survey submission - " + list.length + " records", "", "Dear Sir/Madam,", "",
+      "Please find the NHC survey details ready for submission. " + list.length + " records" + (oldest ? " dated from " + dmy(oldest) : "") + " have not been submitted yet.", ""];
+    if (byM.length) { L.push("By month:"); byM.forEach(function (m) { L.push("- " + MON[Number(m[0].slice(5, 7)) - 1] + " " + m[0].slice(0, 4) + ": " + m[1]); }); L.push(""); }
+    if (byC.length) { L.push("By contractor:"); byC.slice(0, 10).forEach(function (c) { L.push("- " + c[0] + ": " + c[1]); }); L.push(""); }
+    L.push("Kindly confirm receipt.", "", "Regards,");
+    return { title: "NHC submission email", text: L.join("\n"), note: list.length ? "" : "There are no records waiting to be submitted right now." };
+  }
+  function draftEwa(){
+    var pend = EW().filter(function (r) { return clean(r.status) === "Pending"; }).sort(function (a, b) { return String(a.reqDate).localeCompare(String(b.reqDate)); });
+    var L = ["Subject: EWA QC requests - status update", "", "Dear all,", "", "The following EWA QC requests are still pending (" + pend.length + "):", ""];
+    pend.slice(0, 30).forEach(function (r, i) { L.push((i + 1) + ". " + dmy(r.reqDate) + " - " + (clean(r.person) || "-") + " - " + clean(r.details).replace(/\s+/g, " ") + " - " + clean(r.area).replace(/\s+/g, " ")); });
+    if (pend.length > 30) L.push("... and " + (pend.length - 30) + " more");
+    L.push("", "Please let us know if any of these need to be prioritised.", "", "Regards,");
+    return { title: "EWA QC status email", text: L.join("\n"), note: pend.length ? "" : "No pending EWA QC requests right now." };
+  }
+  function draftContractor(name){
+    var open = REG().filter(function (r) { return clean(r["Contractor"]) === name && /^(not started|in progress|on hold)$/i.test(clean(r["Status"])); });
+    var L = ["Subject: Follow-up on open projects - " + name, "", "Dear " + name + " team,", "",
+      "Our records show " + open.length + " project" + (open.length === 1 ? "" : "s") + " still open. Please share the current status, the expected completion date and any items waiting to be submitted:", ""];
+    open.slice(0, 30).forEach(function (r, i) { L.push((i + 1) + ". " + clean(r["Prj Number"]) + " - " + clean(r["Area"]).replace(/\s+/g, " ") + " - " + clean(r["Status"])); });
+    if (open.length > 30) L.push("... and " + (open.length - 30) + " more");
+    L.push("", "Regards,");
+    return { title: "Reminder to " + name, text: L.join("\n"), note: open.length ? "" : "No open (Not Started / In Progress / On Hold) projects found for " + name + "." };
+  }
+  function contractorIn(q){
+    var names = Array.from(new Set(REG().map(function (r) { return clean(r["Contractor"]); }).filter(function (n) { return n.length >= 3 && !isPh(n); })));
+    names.sort(function (a, b) { return b.length - a.length; });
+    for (var i = 0; i < names.length; i++) if (q.indexOf(names[i].toLowerCase()) !== -1) return names[i];
+    return "";
+  }
+
+  // ---- plain-text answers for gaps in the older assistant ----
+  function top(list, n){ return list.slice(0, n).map(function (x) { return "• " + x[0] + ": " + x[1]; }).join("\n"); }
+  function answerEwa(q){
+    var p = parsePeriod(q, "month"), ew = EW();
+    if (/\bpending\b|\bopen\b|\bnot completed\b/.test(q)) {
+      var pend = ew.filter(function (r) { return clean(r.status) === "Pending"; }).sort(function (a, b) { return String(a.reqDate).localeCompare(String(b.reqDate)); });
+      if (!pend.length) return "No EWA QC requests are pending.";
+      return "EWA QC pending requests: " + pend.length + "\n" + pend.slice(0, 15).map(function (r) { return "• " + dmy(r.reqDate) + " - " + (clean(r.person) || "-") + " - " + clean(r.details).replace(/\s+/g, " "); }).join("\n") + (pend.length > 15 ? "\n… and " + (pend.length - 15) + " more" : "");
+    }
+    var inP = ew.filter(function (r) { return inR(r.reqDate, p.from, p.to); });
+    if (/\bpoints?\b/.test(q)) {
+      var sur = ew.filter(function (r) { return inR(r.surveyDate, p.from, p.to); });
+      var tot = sur.reduce(function (t, r) { return t + (Number(r.points) || 0); }, 0);
+      var byP = {}; sur.forEach(function (r) { var k = clean(r.person) || "-"; byP[k] = (byP[k] || 0) + (Number(r.points) || 0); });
+      var rows = Object.keys(byP).map(function (k) { return [k, byP[k]]; }).sort(function (a, b) { return b[1] - a[1]; });
+      return "EWA QC points surveyed (" + p.label + "): " + tot + " across " + sur.length + " request" + (sur.length === 1 ? "" : "s") + (rows.length ? "\nBy requested person:\n" + top(rows, 8) : "");
+    }
+    if (/\b(engineer|mc)\b/.test(q)) {
+      var by = {}; inP.forEach(function (r) { engSplit(r.engineer).forEach(function (n) { by[n] = (by[n] || 0) + 1; }); });
+      var er = Object.keys(by).map(function (k) { return [k, by[k]]; }).sort(function (a, b) { return b[1] - a[1]; });
+      return "EWA QC requests by MC Engineer (" + p.label + "):\n" + (er.length ? top(er, 10) : "• none");
+    }
+    if (/\b(person|who|requester|requested)\b/.test(q)) {
+      var pr = groupCount(inP, function (r) { return clean(r.person); });
+      return "EWA QC requests by requested person (" + p.label + "): " + inP.length + " total\n" + (pr.length ? top(pr, 10) : "• none");
+    }
+    var st = groupCount(inP, function (r) { return clean(r.status) || "(no status)"; });
+    return "EWA QC requests (" + p.label + "): " + inP.length + (st.length ? "\n" + top(st, 6) : "");
+  }
+  function answerNhcPending(){
+    var list = []; try { list = nhcPendingSubmission(); } catch (e) {}
+    var lim = typeof NHC_SUBMISSION_ALERT_LIMIT !== "undefined" ? NHC_SUBMISSION_ALERT_LIMIT : 25;
+    var byM = groupCount(list, function (r) { return String(r["Date"]).slice(0, 7); }).sort(function (a, b) { return a[0].localeCompare(b[0]); });
+    var oldest = list.reduce(function (o, r) { var d = String(r["Date"]).slice(0, 10); return !o || d < o ? d : o; }, "");
+    return "NHC records not yet submitted (dated from 01-09-2026): " + list.length + (list.length > lim ? "  ⚠ over the limit of " + lim : "") +
+      (oldest ? "\nOldest waiting: " + dmy(oldest) : "") +
+      (byM.length ? "\nBy month:\n" + byM.map(function (m) { return "• " + MON[Number(m[0].slice(5, 7)) - 1] + " " + m[0].slice(0, 4) + ": " + m[1]; }).join("\n") : "") +
+      (list.length ? "\n\nSay \"draft NHC submission email\" for a ready-to-copy message." : "");
+  }
+  function answerMaintenance(q){
+    var p = parsePeriod(q, "year"), ms = MS();
+    var by = /\b(surveyor)\b/.test(q) ? ["Surveyor", function (r) { return real(r["Surveyor"]); }]
+      : /\b(requester|requested\s+person|requested\s+by|who\s+requested)\b/.test(q) ? ["Requested Person", function (r) { return real(r["Requested Person"]); }]
+      : /\btype\b/.test(q) ? ["Type", function (r) { return real(r["Type"]); }] : null;
+    if (by) {
+      var inP = ms.filter(function (r) { return inR(msDates(r).req, p.from, p.to) || (!msDates(r).req && inR(msDates(r).sur, p.from, p.to)); });
+      var g = groupCount(inP, by[1]);
+      return "Maintenance Survey jobs by " + by[0] + " (" + p.label + "): " + inP.length + " total\n" + (g.length ? top(g, 12) : "• none");
+    }
+    var active = ms.filter(function (r) { return !msDates(r).sur; });
+    if (/\b(active|pending|open|not\s+completed|without)\b/.test(q)) {
+      active.sort(function (a, b) { return msDates(a).req.localeCompare(msDates(b).req); });
+      return "Active maintenance jobs (no Survey Date yet): " + active.length + (active.length ? "\n" + active.slice(0, 12).map(function (r) { return "• " + dmy(msDates(r).req) + " - " + (real(r["Type"]) || "-") + " - " + clean(r["Area"]).replace(/\s+/g, " ") + (real(r["Requested Person"]) ? " (" + clean(r["Requested Person"]) + ")" : ""); }).join("\n") + (active.length > 12 ? "\n… and " + (active.length - 12) + " more" : "") : "");
+    }
+    var done = ms.filter(function (r) { return inR(msDates(r).sur, p.from, p.to); });
+    return "Completed maintenance jobs (Survey Date in " + p.label + "): " + done.length;
+  }
+  function answerBackup(){
+    var t = {}; try { t = wddBackupTimes(); } catch (e) {}
+    function f(d, dayOnly){ return d ? (dayOnly ? d.toLocaleDateString("en-GB") : d.toLocaleString("en-GB") + " (" + wddAgeLabel(d) + ")") : "never"; }
+    return "Backups:\n• Folder backup: " + f(t.folder) + "\n• Daily download: " + f(t.daily, true) + "\n• Manual backup: " + f(t.manual) + "\n\nOpen the Backup chip at the top for details.";
+  }
+
+  // ---- entry point called from answerQuestion() ----
+  window.wddAssistExtra = function (qOriginal, q) {
+    q = String(q || "");
+    if (/\b(copy|prepare|build|make|export)\b[\s\S]{0,30}\bai\b|\bai\s+(chat|summary|prompt)\b/.test(q)) { window.wddAssistCopyOpen(); return "Opened the \"Copy for AI chat\" window - pick what to include, then press Copy and paste it into your AI chat."; }
+    var wantsDraft = /\b(draft|write|compose|prepare|create|generate)\b/.test(q) && /\b(email|mail|message|reminder|summary|update|report|letter)\b/.test(q);
+    var summaryWord = /\b(weekly|monthly)\s+(summary|update|report)\b|\bsummary\s+of\s+(the\s+)?(week|month)\b/.test(q);
+    if (wantsDraft || summaryWord) {
+      var d;
+      if (/\bewa\b/.test(q)) d = draftEwa();
+      else if (/\bnhc\b/.test(q) || /\bclient\b/.test(q) && /\bsubmi/.test(q)) d = draftNhc();
+      else { var c = contractorIn(q); if (c && /\b(reminder|remind|follow|contractor|email|mail|message|letter)\b/.test(q)) d = draftContractor(c); else if (/\b(week|weekly|month|monthly|summary|status|update|report)\b/.test(q)) d = draftSummary(q); }
+      if (!d) return "I can draft: a weekly or monthly summary, an NHC submission email, an EWA QC status email, or a reminder to a contractor (e.g. \"draft reminder to Al Farea\").";
+      return { rich: true, title: d.title, text: d.text, note: d.note || "" };
+    }
+    if (/\bewa\b/.test(q) && !/\bdraft\b/.test(q)) return answerEwa(q);
+    if (/\bnhc\b/.test(q) && /(not|yet|still|pending|waiting|outstanding|unsubmitted)[\s\S]{0,25}submi|submission\s+pending|unsubmitted/.test(q)) return answerNhcPending();
+    if (/\b(last|latest)\s+backup\b|\bwhen\b[\s\S]{0,20}\bbackup\b|\bbackup\s+status\b/.test(q)) return answerBackup();
+    if (/\bmaintenance\b/.test(q) && /\b(requester|requested\s+person|requested\s+by|who\s+requested|surveyor|active|pending|open|not\s+completed|by\s+type)\b/.test(q)) return answerMaintenance(q);
+    return null;
+  };
+
+  // ---- rich (copyable) chat message ----
+  function copyText(text, btn){
+    function done(){ if (btn) { var o = btn.textContent; btn.textContent = "✔ Copied"; setTimeout(function () { btn.textContent = o; }, 1500); } }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () { fallback(); });
+    else fallback();
+    function fallback(){ var ta = document.createElement("textarea"); ta.value = text; ta.style.cssText = "position:fixed;opacity:0"; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); done(); } catch (e) { alert("Could not copy - select the text and press Ctrl+C."); } ta.remove(); }
+  }
+  window.wddAssistCopyText = copyText;
+  window.wddAssistAddRich = function (a) {
+    var box = document.getElementById("wddChatMessages"); if (!box) return;
+    var div = document.createElement("div"); div.className = "wdd-msg bot";
+    div.innerHTML = "<strong>✍️ " + esc(a.title) + "</strong>" + (a.note ? '<div style="margin:6px 0;color:#92400e;">' + esc(a.note) + "</div>" : "") +
+      '<pre style="white-space:pre-wrap;word-break:break-word;font:12.5px/1.5 inherit;margin:8px 0;padding:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;"></pre>' +
+      '<div style="display:flex;gap:8px;"><button type="button" class="wdd-rich-copy" style="border:none;border-radius:8px;padding:6px 12px;font-weight:700;font-size:12px;background:#163f7c;color:#fff;cursor:pointer;">📋 Copy text</button></div>' +
+      '<div style="font-size:11px;color:#64748b;margin-top:6px;">Built from the data in this portal - read it through before sending.</div>';
+    div.querySelector("pre").textContent = a.text;
+    div.querySelector(".wdd-rich-copy").onclick = function () { copyText(a.text, this); };
+    box.appendChild(div); box.scrollTop = box.scrollHeight;
+  };
+
+  // ---- Copy for AI chat ----
+  function buildAiText(opt){
+    var Y = opt.year, from = Y + "-01-01", to = Y + "-12-31";
+    var maps = { Contractor: new Map(), Person: new Map(), Surveyor: new Map(), Engineer: new Map() };
+    function nm(kind, v){
+      v = real(v) || "(blank)"; if (!opt.anon || v === "(blank)") return v;
+      var m = maps[kind]; if (!m.has(v)) m.set(v, kind + " " + (kind === "Contractor" ? String.fromCharCode(65 + (m.size % 26)) + (m.size >= 26 ? Math.floor(m.size / 26) : "") : m.size + 1));
+      return m.get(v);
+    }
+    var L = [];
+    var reg = REG(), ms = MS(), ew = EW(), nh = NHC();
+    function lines(arr, n){ return arr.slice(0, n).map(function (x) { return "  - " + x[0] + ": " + x[1]; }).join("\n"); }
+    function byMonth(list, dateFn){ var o = {}; list.forEach(function (r) { var d = dateFn(r); if (inR(d, from, to)) { var k = d.slice(5, 7); o[k] = (o[k] || 0) + 1; } }); return Object.keys(o).sort().map(function (k) { return MON[Number(k) - 1] + ": " + o[k]; }).join(", ") || "none"; }
+    if (opt.reg) {
+      var rY = reg.filter(function (r) { return String(r["Received"] || "") === String(Y); });
+      L.push("WDD PROJECT REGISTRY", "- Projects in the registry (all years): " + reg.length, "- Received in " + Y + ": " + rY.length);
+      var st = groupCount(rY, function (r) { return clean(r["Status"]) || "(no status)"; }); if (st.length) L.push("- Status of the " + Y + " projects:", lines(st, 10));
+      var cc = groupCount(rY, function (r) { return nm("Contractor", r["Contractor"]); }); if (cc.length) L.push("- Top contractors (" + Y + " projects):", lines(cc, 10));
+      L.push("");
+    }
+    if (opt.ms) {
+      var mY = ms.filter(function (r) { return inR(msDates(r).req, from, to) || (!msDates(r).req && inR(msDates(r).sur, from, to)); });
+      L.push("MAINTENANCE SURVEY (" + Y + ")", "- Jobs requested: " + mY.length, "- Jobs by request month: " + byMonth(ms, function (r) { return msDates(r).req; }),
+        "- Active jobs (no Survey Date yet, all years): " + ms.filter(function (r) { return !msDates(r).sur; }).length);
+      var ty = groupCount(mY, function (r) { return real(r["Type"]); }); if (ty.length) L.push("- By type:", lines(ty, 10));
+      var mc = groupCount(mY, function (r) { return nm("Contractor", r["Contractor"]); }); if (mc.length) L.push("- By contractor:", lines(mc, 10));
+      var mt = groupCount(mY, function (r) { return real(r["Team"]) ? "Team " + clean(r["Team"]) : ""; }); if (mt.length) L.push("- By team:", lines(mt, 10));
+      var mr = groupCount(mY, function (r) { return real(r["Requested Person"]) ? nm("Person", r["Requested Person"]) : ""; }); if (mr.length) L.push("- By requested person:", lines(mr, 8));
+      var mu = groupCount(mY, function (r) { return real(r["Surveyor"]) ? nm("Surveyor", r["Surveyor"]) : ""; }); if (mu.length) L.push("- By surveyor:", lines(mu, 8));
+      L.push("");
+    }
+    if (opt.ewa) {
+      var eY = ew.filter(function (r) { return inR(r.reqDate, from, to); });
+      L.push("EWA QC (" + Y + ")", "- Requests: " + eY.length, "- Requests by month: " + byMonth(ew, function (r) { return r.reqDate; }),
+        "- Points surveyed: " + eY.reduce(function (t, r) { return t + (Number(r.points) || 0); }, 0), "- Pending (all years): " + ew.filter(function (r) { return clean(r.status) === "Pending"; }).length);
+      var es = groupCount(eY, function (r) { return clean(r.status) || "(no status)"; }); if (es.length) L.push("- By status:", lines(es, 6));
+      var ep = groupCount(eY, function (r) { return real(r.person) ? nm("Person", r.person) : ""; }); if (ep.length) L.push("- By requested person:", lines(ep, 8));
+      var eeMap = {}; eY.forEach(function (r) { engSplit(r.engineer).forEach(function (n) { var k = nm("Engineer", n); eeMap[k] = (eeMap[k] || 0) + 1; }); });
+      var ee = Object.keys(eeMap).map(function (k) { return [k, eeMap[k]]; }).sort(function (a, b) { return b[1] - a[1]; }); if (ee.length) L.push("- By MC engineer:", lines(ee, 8));
+      L.push("");
+    }
+    if (opt.nhc) {
+      var nY = nh.filter(function (r) { return inR(r["Date"], from, to); });
+      var pend = []; try { pend = nhcPendingSubmission(); } catch (e) {}
+      L.push("HOUSE CONNECTIONS - NHC (" + Y + ")", "- Records: " + nY.length, "- Records by month: " + byMonth(nh, function (r) { return r["Date"]; }),
+        "- Not yet submitted to the client (dated from 01-09-2026): " + pend.length);
+      var nc = groupCount(nY, function (r) { return nm("Contractor", r["Contractor"]); }); if (nc.length) L.push("- By contractor:", lines(nc, 10));
+      L.push("");
+    }
+    var head = "I am sharing a summary of data from my survey-operations work portal (generated " + dmy(iso(new Date())) + ", year " + Y + ")." +
+      (opt.anon ? " Names have been replaced by labels such as \"Contractor A\" or \"Person 1\"." : "") +
+      "\nPlease answer using only these figures. If something cannot be worked out from them, say what extra information you would need. Do not invent numbers.\n\n";
+    var text = head + L.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n\nMY QUESTION:\n" + (opt.question || "(type your question here)");
+    return { text: text, maps: maps };
+  }
+  window.wddAssistCopyOpen = function () {
+    var yrs = new Set([new Date().getFullYear()]);
+    MS().forEach(function (r) { var y = Number(String(r["Year"] || "").slice(0, 4)); if (y) yrs.add(y); });
+    EW().forEach(function (r) { var y = Number(String(r.reqDate || "").slice(0, 4)); if (y) yrs.add(y); });
+    NHC().forEach(function (r) { var y = Number(String(r["Date"] || "").slice(0, 4)); if (y) yrs.add(y); });
+    var years = Array.from(yrs).sort(function (a, b) { return b - a; });
+    var chk = "display:flex;align-items:center;gap:6px;font-size:13px;";
+    var box = wddOverlay("wddAiCopy",
+      '<div style="font-size:17px;font-weight:800;margin-bottom:2px;">📋 Copy for AI chat</div>' +
+      '<div style="font-size:12.5px;color:#64748b;margin-bottom:12px;">Builds a short summary of your data to paste into an AI chat (Claude, Gemini, ChatGPT...). Nothing is sent from here - you decide what to paste.</div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:10px;"><label style="' + chk + '"><input type="checkbox" id="aiReg" checked> Projects</label><label style="' + chk + '"><input type="checkbox" id="aiMs" checked> Maintenance</label><label style="' + chk + '"><input type="checkbox" id="aiEwa" checked> EWA QC</label><label style="' + chk + '"><input type="checkbox" id="aiNhc" checked> NHC</label>' +
+      '<label style="' + chk + '">Year <select id="aiYear">' + years.map(function (y) { return "<option>" + y + "</option>"; }).join("") + "</select></label></div>" +
+      '<label style="' + chk + 'margin-bottom:10px;"><input type="checkbox" id="aiAnon" checked> <span><b>Hide names</b> (contractors, requested persons, surveyors and engineers become "Contractor A", "Person 1"...)</span></label>' +
+      '<div style="font-size:12px;font-weight:700;color:#475569;">Your question</div>' +
+      '<input id="aiQ" type="text" placeholder="e.g. Which contractor is busiest and where are the delays?" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;margin:4px 0 10px;">' +
+      '<div style="font-size:12px;font-weight:700;color:#475569;">What will be copied</div>' +
+      '<textarea id="aiOut" readonly style="width:100%;box-sizing:border-box;height:210px;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font:12px/1.45 monospace;margin:4px 0 8px;"></textarea>' +
+      '<div id="aiLegend" style="font-size:11.5px;color:#64748b;margin-bottom:10px;"></div>' +
+      '<div style="display:flex;gap:10px;justify-content:flex-end;"><button id="aiClose" type="button" style="' + WDD_BTN + 'background:#e2e8f0;color:#0f172a;">Close</button><button id="aiCopy" type="button" style="' + WDD_BTN + 'background:#163f7c;color:#fff;">📋 Copy</button></div>', 680);
+    var q = function (id) { return box.querySelector("#" + id); };
+    function refresh(){
+      var r = buildAiText({ year: Number(q("aiYear").value), reg: q("aiReg").checked, ms: q("aiMs").checked, ewa: q("aiEwa").checked, nhc: q("aiNhc").checked, anon: q("aiAnon").checked, question: q("aiQ").value.trim() });
+      q("aiOut").value = r.text;
+      var leg = []; Object.keys(r.maps).forEach(function (k) { r.maps[k].forEach(function (lab, name) { leg.push(lab + " = " + name); }); });
+      q("aiLegend").textContent = q("aiAnon").checked && leg.length ? "Key (stays on this screen, not copied): " + leg.slice(0, 40).join("; ") + (leg.length > 40 ? "; …" : "") : "";
+    }
+    ["aiReg", "aiMs", "aiEwa", "aiNhc", "aiAnon", "aiYear"].forEach(function (id) { q(id).addEventListener("change", refresh); });
+    q("aiQ").addEventListener("input", refresh);
+    q("aiClose").onclick = function () { document.getElementById("wddAiCopy").remove(); };
+    q("aiCopy").onclick = function () { copyText(q("aiOut").value, this); };
+    refresh(); q("aiQ").focus();
   };
 })();
 </script>

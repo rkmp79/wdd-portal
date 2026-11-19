@@ -5846,6 +5846,12 @@ html.wdd-unlocked #wddPinLock{display:none}
                             <div class="stat-sub">Active on this project</div>
                             <div class="stat-icon"></div>
                         </div>
+                        <div class="stat-card rose center-text" id="nhcManifoldCard" style="cursor:pointer;" onclick="nhcOpenManifolds()" title="Number of manifold records (a manifold = one record that holds several meters) for the selected year. The meters inside them are already counted in Total Connections. Click to list the manifolds in NHC Records.">
+                            <div class="stat-label">Manifolds</div>
+                            <div class="stat-value" id="nhcManifolds">0</div>
+                            <div class="stat-sub" id="nhcManifoldSub">meters inside</div>
+                            <div class="stat-icon"></div>
+                        </div>
                     </div>
                     <div class="card" style="margin-bottom:16px;">
                         <div class="card-header">
@@ -7810,13 +7816,14 @@ html.wdd-unlocked #wddPinLock{display:none}
         // copy rather than going stale. WDD_BUILD_VERSION is a simple
         // human-readable label (bump it on meaningful rounds of changes);
         // WDD_BUILD_NUMBER/TIMESTAMP track the exact edit.
-        const WDD_BUILD_VERSION = "v3.03";
-        const WDD_BUILD_TIMESTAMP = "2026-11-19 07:37 local time (UTC+03:00)";
-        const WDD_BUILD_NUMBER = "20261119.0737";
+        const WDD_BUILD_VERSION = "v3.04";
+        const WDD_BUILD_TIMESTAMP = "2026-11-19 13:28 local time (UTC+03:00)";
+        const WDD_BUILD_NUMBER = "20261119.1328";
         // REQUIRED BUILD CHANGELOG: update this list and the build number /
         // timestamp every time the HTML build is changed. On first load of a
         // new build, the entry is persisted to the Activity Log's Updated Values.
         const WDD_BUILD_CHANGES = [
+            "NHC Dashboard: new Manifolds KPI card - number of manifold records for the selected year with the meters inside them; click it to list the manifolds in NHC Records (returns to the default view when you leave)",
             "Data Assistant: new answers (EWA QC requests / pending / points / by engineer, NHC not yet submitted, last backup, Maintenance by requested person / surveyor / type, active jobs); ready-to-copy drafts built from the real numbers (weekly / monthly summary, NHC submission email, EWA QC status email, reminder to a contractor); and a 📋 AI button that builds an anonymisable summary to paste into any AI chat - all computed locally, nothing is sent anywhere",
             "Security: PIN lock - the portal asks for a PIN when it is opened (default 1122, stored only as a salted hash and kept out of backups); 5 wrong tries pause entry for 30 seconds; new 🔒 Lock button in the top bar; Backup & Safety panel has Lock now and Change PIN. This keeps casual visitors out - it is not strong security",
             "Maintenance Survey: Surveyor column content is now left-aligned in the Active and Completed Maintenance Jobs tables (like Requested Person and Contractor)",
@@ -17482,6 +17489,20 @@ html.wdd-unlocked #wddPinLock{display:none}
             overlay.addEventListener("click", ev => { if (ev.target === overlay) close(); });
         }
 
+        // Manifolds KPI card on the NHC Dashboard: opens NHC Records on the manifold records for the
+        // year chosen on the dashboard; returns to the default view when you leave NHC Records.
+        function nhcOpenManifolds() {
+            const yr = (document.getElementById("nhcDashYear") || {}).value || "";
+            try { wddRestoreOpenedFilter(); } catch (e) {}
+            showSection("nhc-records", navItemFor("nhc-records"));
+            nhcClearAllFilterFields();
+            const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+            if (yr) { set("nhcFilterFrom", yr + "-01-01"); set("nhcFilterTo", yr + "-12-31"); }
+            const mo = document.getElementById("nhcFilterManifoldOnly"); if (mo) mo.checked = true;
+            nhcApplyFilters();
+            wddOpenedFilter = { section: "nhc-records", detach() {}, restore() { try { nhcResetFilters(); } catch (e) {} } };
+        }
+
         // Opens NHC Records on exactly the records the popup counts. Like the other click-through
         // views it returns to the default view as soon as you leave NHC Records.
         function nhcOpenPendingSubmission() {
@@ -18572,6 +18593,15 @@ html.wdd-unlocked #wddPinLock{display:none}
             if (bl) bl.textContent = new Set(src.map(r => r["Block No"]).filter(Boolean)).size;
             const cl = document.getElementById("nhcContractors");
             if (cl) cl.textContent = new Set(src.map(r => r["Contractor"]).filter(Boolean)).size;
+            // Manifold KPI: how many manifold records (selected year) and how many meters sit inside them.
+            const mfs = src.filter(r => r["IsManifold"]);
+            const mfEl = document.getElementById("nhcManifolds");
+            if (mfEl) mfEl.textContent = mfs.length;
+            const mfSub = document.getElementById("nhcManifoldSub");
+            if (mfSub) {
+                const inside = mfs.reduce((t, r) => t + (Array.isArray(r["Meters"]) ? r["Meters"].length : 0), 0);
+                mfSub.textContent = inside + " meter" + (inside === 1 ? "" : "s") + " inside";
+            }
             // "Monthly Count" row count drives how many rows By Contractor
             // and Top Blocks show by default too, so all three breakdown
             // tables in this row stay visually aligned (same table height).

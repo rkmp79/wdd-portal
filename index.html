@@ -5041,19 +5041,19 @@ html.wdd-unlocked #wddPinLock{display:none}
                     <div class="stat-grid no-print">
                         <div class="stat-card center-text">
                             <div class="stat-label">Resubmissions</div>
-                            <div class="stat-value" id="resubStatTotal" style="font-size:20px;">0</div>
+                            <div class="stat-value" id="resubStatTotal">0</div>
                             <div class="stat-sub">Matching the filters</div>
                             <div class="stat-icon">🔁</div>
                         </div>
                         <div class="stat-card center-text">
                             <div class="stat-label">Contractors</div>
-                            <div class="stat-value" id="resubStatContractors" style="font-size:20px;">0</div>
+                            <div class="stat-value" id="resubStatContractors">0</div>
                             <div class="stat-sub">Distinct, matching the filters</div>
                             <div class="stat-icon">👷</div>
                         </div>
                         <div class="stat-card center-text">
                             <div class="stat-label">This Month</div>
-                            <div class="stat-value" id="resubStatMonth" style="font-size:20px;">0</div>
+                            <div class="stat-value" id="resubStatMonth">0</div>
                             <div class="stat-sub">Submitted this calendar month</div>
                             <div class="stat-icon">📅</div>
                         </div>
@@ -7816,13 +7816,14 @@ html.wdd-unlocked #wddPinLock{display:none}
         // copy rather than going stale. WDD_BUILD_VERSION is a simple
         // human-readable label (bump it on meaningful rounds of changes);
         // WDD_BUILD_NUMBER/TIMESTAMP track the exact edit.
-        const WDD_BUILD_VERSION = "v3.04";
-        const WDD_BUILD_TIMESTAMP = "2026-11-19 13:28 local time (UTC+03:00)";
-        const WDD_BUILD_NUMBER = "20261119.1328";
+        const WDD_BUILD_VERSION = "v3.05";
+        const WDD_BUILD_TIMESTAMP = "2026-11-21 07:30 local time (UTC+03:00)";
+        const WDD_BUILD_NUMBER = "20261121.0730";
         // REQUIRED BUILD CHANGELOG: update this list and the build number /
         // timestamp every time the HTML build is changed. On first load of a
         // new build, the entry is persisted to the Activity Log's Updated Values.
         const WDD_BUILD_CHANGES = [
+            "Resubmissions: KPI card values now use the same font size as the Dashboard KPI cards (was 20px, now the standard 26px); label, sub-text, weight, colour and spacing already matched",
             "NHC Dashboard: new Manifolds KPI card - number of manifold records for the selected year with the meters inside them; click it to list the manifolds in NHC Records (returns to the default view when you leave)",
             "Data Assistant: new answers (EWA QC requests / pending / points / by engineer, NHC not yet submitted, last backup, Maintenance by requested person / surveyor / type, active jobs); ready-to-copy drafts built from the real numbers (weekly / monthly summary, NHC submission email, EWA QC status email, reminder to a contractor); and a 📋 AI button that builds an anonymisable summary to paste into any AI chat - all computed locally, nothing is sent anywhere",
             "Security: PIN lock - the portal asks for a PIN when it is opened (default 1122, stored only as a salted hash and kept out of backups); 5 wrong tries pause entry for 30 seconds; new 🔒 Lock button in the top bar; Backup & Safety panel has Lock now and Change PIN. This keeps casual visitors out - it is not strong security",

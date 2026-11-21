@@ -67,7 +67,16 @@
             var collapsed = localStorage.getItem('wdd_sidebar_collapsed') === '1';
             root.style.setProperty('--sidebar-w', (collapsed ? COLLAPSED_W : w) + 'px');
             root.setAttribute('data-sidebar-collapsed', collapsed ? '1' : '0');
-            var theme = localStorage.getItem('wdd_sidebar_theme') || 'default';
+            // Default sidebar theme is Midnight. Browsers that only ever had the old automatic
+            // "default" saved are switched to Midnight once; a Forest choice is kept, and anything
+            // picked from the theme swatches afterwards (including Default) is respected.
+            var theme = localStorage.getItem('wdd_sidebar_theme');
+            if (!localStorage.getItem('wdd_theme_default_v2')) {
+                if (!theme || theme === 'default') theme = 'midnight';
+                localStorage.setItem('wdd_sidebar_theme', theme);
+                localStorage.setItem('wdd_theme_default_v2', '1');
+            }
+            theme = theme || 'midnight';
             if (theme === 'forest' || theme === 'midnight') {
                 root.setAttribute('data-sidebar-theme', theme);
             }
@@ -7822,13 +7831,15 @@ html.wdd-unlocked #wddPinLock{display:none}
         // copy rather than going stale. WDD_BUILD_VERSION is a simple
         // human-readable label (bump it on meaningful rounds of changes);
         // WDD_BUILD_NUMBER/TIMESTAMP track the exact edit.
-        const WDD_BUILD_VERSION = "v3.07";
-        const WDD_BUILD_TIMESTAMP = "2026-11-21 08:22 local time (UTC+03:00)";
-        const WDD_BUILD_NUMBER = "20261121.0822";
+        const WDD_BUILD_VERSION = "v3.09";
+        const WDD_BUILD_TIMESTAMP = "2026-11-21 18:47 local time (UTC+03:00)";
+        const WDD_BUILD_NUMBER = "20261121.1847";
         // REQUIRED BUILD CHANGELOG: update this list and the build number /
         // timestamp every time the HTML build is changed. On first load of a
         // new build, the entry is persisted to the Activity Log's Updated Values.
         const WDD_BUILD_CHANGES = [
+            "Theme: the default sidebar theme is now Midnight (a browser that only had the old automatic Default saved is switched once; Forest choices are kept; any theme picked from the swatches afterwards, including Default, is respected)",
+            "NHC exports: Excel, custom-field Excel and custom print now always list the records oldest to newest by Date (they followed the order the records were entered in, so a late entry with an earlier date landed at the bottom); same-date records keep their entry order and a manifold's meters stay together",
             "Resubmissions: removed the \"matching the filters\" text from the KPI cards (the numbers still follow the filters)",
             "Resubmissions: new NHC Resubmissions KPI card - number of resubmissions (matching the current filters) whose project came from NHC Records, shown with the same font as the other KPI cards",
             "Resubmissions: KPI card values now use the same font size as the Dashboard KPI cards (was 20px, now the standard 26px); label, sub-text, weight, colour and spacing already matched",
@@ -8571,8 +8582,8 @@ html.wdd-unlocked #wddPinLock{display:none}
             try { localStorage.setItem('wdd_sidebar_theme', theme); } catch (e) {}
         };
         (function () {
-            let saved = 'default';
-            try { saved = localStorage.getItem('wdd_sidebar_theme') || 'default'; } catch (e) {}
+            let saved = 'midnight';
+            try { saved = localStorage.getItem('wdd_sidebar_theme') || 'midnight'; } catch (e) {}
             window.setSidebarTheme(saved);
         })();
 
@@ -19060,8 +19071,17 @@ html.wdd-unlocked #wddPinLock{display:none}
         // (sharing the manifold's Date/Project/Area/Contractor/Block/Road),
         // so the meter-level detail travels into CSV/Excel and print too.
         function nhcExpandForExport(list) {
+            // Every NHC export / print goes through here: always oldest -> newest by Date. Records
+            // with the same Date keep the order they were entered in, a record with no Date goes to
+            // the end, and a manifold's meters stay together right after each other.
+            const pos = new Map(nhcRecords.map((r, i) => [r, i]));
+            const sorted = list.slice().sort((a, b) => {
+                const da = String(a["Date"] || "").slice(0, 10), db = String(b["Date"] || "").slice(0, 10);
+                if (da !== db) { if (!da) return 1; if (!db) return -1; return da < db ? -1 : 1; }
+                return (pos.has(a) ? pos.get(a) : 1e9) - (pos.has(b) ? pos.get(b) : 1e9);
+            });
             const out = [];
-            list.forEach(r => {
+            sorted.forEach(r => {
                 if (r["IsManifold"] && Array.isArray(r["Meters"]) && r["Meters"].length) {
                     r["Meters"].forEach(m => {
                         out.push({

@@ -3,7 +3,7 @@
 A single-file web app (`index.html`). No server, no build step.
 **Your data is never stored in this repository** - it lives in your own browser (see "Where your data lives").
 
-Package built from portal **v3.01 (Build 20261117.1402)**.
+Package built from portal **v3.15 (Build 20261125.0744)**.
 
 ---
 
@@ -51,6 +51,17 @@ Each time you get a new version of the file:
 
 Updating never touches your data.
 
+## PIN lock
+
+The portal asks for a PIN every time it is opened in a new tab or window (a refresh in the same tab does not ask again).
+
+* **Starting PIN: `1122`** - change it straight away: **Backup chip → Change PIN** (4 to 8 digits).
+* **Lock the portal** any time with the **🔒 Lock** button in the top bar.
+* 5 wrong tries pause entry for 30 seconds.
+* The PIN is stored only as a salted hash in your browser, and it is **kept out of backup files**, so restoring a backup never changes it.
+* **Forgot the PIN?** Open the portal's page, press F12, choose *Console* and run `localStorage.removeItem('wdd_pin_hash')`, then reload - the PIN goes back to `1122`.
+* **Be realistic about what it protects:** the PIN keeps casual visitors out of the screens. It is not strong security - anyone who can read the page's code or use your browser profile can get around it. The real protection for your data is that it is stored only in your own browser, never on GitHub.
+
 ## Where your data lives
 
 * In **your browser, on your laptop** (local storage plus a small IndexedDB vault), for the exact address you open.
@@ -64,7 +75,7 @@ Updating never touches your data.
 
 * **Public repository:** anyone can read the source. The file contains company email addresses and the Client Submission Form template.
 * **Private repository:** GitHub Pages from a private repo requires a paid GitHub plan, and the published site is still reachable by anyone who has the link.
-* The portal has **no login**. Anyone with the link can open the screens, but cannot see your records (they exist only in your browser).
+* The portal has a **PIN lock** (see above), but no real login: the PIN check is in the page code. Anyone with the link can still read the code, but cannot see your records (they exist only in your browser).
 * If you host other apps at `<your-github-name>.github.io`, they share the same browser storage origin as this one. Use a separate GitHub account or a custom domain for this portal if that matters to you.
 
 ## Never commit data

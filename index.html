@@ -1377,6 +1377,13 @@ if (typeof Chart !== "undefined") { Chart.defaults.color = "#334155"; }
         .badge-survey-done::before {
             background: #2563eb;
         }
+        .badge-submitted {
+            background: #ccfbf1;
+            color: #0f766e;
+        }
+        .badge-submitted::before {
+            background: #0d9488;
+        }
         .badge-partial {
             background: #fef9c3;
             color: #92400e;
@@ -3545,6 +3552,7 @@ html[data-sidebar-collapsed="1"] #sidebarToggle::before { content: "☰"; }
 .badge { border-radius: 20px; font-weight: 700; }
 .badge-complete { background: var(--rd-primary-tint); color: var(--rd-primary-dark); }
 .badge-survey-done { background: var(--rd-blue-tint); color: var(--blue2); }
+.badge-submitted { background: #ccfbf1; color: #0f766e; }
 .badge-partial { background: var(--rd-amber-tint); color: #92400e; }
 .badge-pending { background: #f1f3f7; color: var(--text2); }
 .badge-not-started { background: #e8edf5; color: #475569; }
@@ -4007,13 +4015,15 @@ html.wdd-unlocked #wddPinLock{display:none}
             <div class="path-modal-body" style="background:#fff;border:none;margin:14px 18px 0;padding:0;max-height:60vh;overflow:auto;">
                 <div style="margin-bottom:12px;font-size:12px;color:var(--muted)">
                     These block numbers appear with more than one name across the WDD Project Registry and NHC
-                    Records. Pick the correct name for each block, or uncheck a group to leave it alone. Applying
+                    Records. Pick the correct name for each block, uncheck a group to leave it alone for now, or press Ignore to
+                    hide a block for good. Applying
                     updates NHC Records' Area field directly and rewrites the block reference inside WDD Project
                     Registry's Area field. Nothing is changed until you click Apply, and this cannot be undone.
                 </div>
                 <div style="margin-bottom:10px;display:flex;gap:8px;">
                     <button type="button" class="btn btn-ghost btn-sm" onclick="setAllBlockNameGroups(true)">☑️ Select All</button>
                     <button type="button" class="btn btn-ghost btn-sm" onclick="setAllBlockNameGroups(false)">⬜ Deselect All</button>
+                    <button type="button" class="btn btn-ghost btn-sm" id="bnIgnoredBtn" onclick="showIgnoredBlockNames()" style="margin-left:auto;display:none;">🚫 Ignored blocks (0)</button>
                 </div>
                 <div id="blockNameCleanupList"></div>
             </div>
@@ -4478,6 +4488,7 @@ html.wdd-unlocked #wddPinLock{display:none}
                                 <select id="f_status">
                                     <option value=""> Select </option>
                                     <option value="Completed">Completed</option>
+                                    <option value="Submitted">Submitted</option>
                                     <option value="Closed">Closed</option>
                                     <option value="Partial">Partial</option>
                                     <option value="Not Started">Not Started</option>
@@ -5078,7 +5089,7 @@ html.wdd-unlocked #wddPinLock{display:none}
                         <div class="card-header">
                             <div>
                                 <div class="card-title" id="resubFormTitle"><span class="icon">➕</span> Add New Entry</div>
-                                <div class="card-subtitle">Only projects already submitted to the client can be resubmitted -- type a Project Number (WDD Project Registry or NHC Records) and the details, including the client Submission Date, are fetched automatically</div>
+                                <div class="card-subtitle">WDD projects must already be submitted to the client (Submission Date in the Project Registry); NHC projects can be resubmitted with or without a Submission Date -- type a Project Number (WDD Project Registry or NHC Records) and the details, including the client Submission Date when there is one, are fetched automatically</div>
                             </div>
                             <span id="moduleUpdateResub" class="filter-active-tag" style="background:#eef2ff;color:#4338ca;">--</span>
                         </div>
@@ -5089,7 +5100,7 @@ html.wdd-unlocked #wddPinLock{display:none}
                             <div class="field"><label>Contractor</label><input type="text" id="resub_contractor" autocomplete="off" placeholder="Fetched from the registry"></div>
                             <div class="field"><label>Team</label><select id="resub_team"></select></div>
                             <div class="field" style="grid-column:span 2;"><label>Details</label><input type="text" id="resub_details" autocomplete="off" placeholder="What is being resubmitted"></div>
-                            <div class="field"><label>EWA Engineer</label><input type="text" id="resub_engineer" autocomplete="off" placeholder="e.g. Saja" oninput="titleCase(this)"></div>
+                            <div class="field"><label>EWA Engineer</label><input type="text" id="resub_engineer" autocomplete="off" placeholder="e.g. Saja" oninput="showFieldAC('resub_engineer','ac_resub_engineer','EWA Engineer');titleCase(this)" onblur="hideAC('ac_resub_engineer')"><div class="ac-list" id="ac_resub_engineer" style="display:none"></div></div>
                             <div class="field"><label title="The date this project was submitted to the client (fetched automatically)">Submission Date (Client)</label><input type="date" id="resub_subdate" readonly tabindex="-1" style="background:var(--bg, #f1f5f9);cursor:not-allowed;" title="The date this project was submitted to the client -- fetched from the WDD Project Registry"></div>
                             <div class="field"><label>Resubmission Date *</label><input type="date" id="resub_resubdate"></div>
                             <div class="field"><label>Client Communication Mode</label>
@@ -5449,7 +5460,7 @@ html.wdd-unlocked #wddPinLock{display:none}
                                 <div class="filter-label">Status</div>
                                 <select class="filter-input" id="mgmtFilterStatus" style="width:100%;">
                                     <option value="">All Statuses</option>
-                                    <option>Completed</option><option>Not Started</option><option>In Progress</option><option>On Hold</option>
+                                    <option>Completed</option><option>Submitted</option><option>Not Started</option><option>In Progress</option><option>On Hold</option>
                                     <option>Partial</option><option>Cancelled</option>
                                 </select>
                             </div>
@@ -6621,6 +6632,22 @@ html.wdd-unlocked #wddPinLock{display:none}
                         </div>
                         <div class="card-subtitle" style="padding:0 16px 10px;color:var(--muted);font-size:12px;">
                             Unique blocks pulled from the WDD Project Registry (Area) and NHC Records (Block No &amp; Area), plus any blocks added manually below. Refreshes automatically as new blocks show up in either module. Tick one or more rows and click ✏️ Edit Selected, use ✏️ Edit Block to pick a single block from a dropdown, ➕ Add Block to register a new block before it has any project/NHC record yet, or 📦 Bulk Update to rename several at once — the Area field is updated in NHC Records (and the matching WDD Project Registry entries) automatically to keep everything in sync. Tick one or more rows and click 🗑️ Delete Selected to remove a block's manual registration and Team assignment — a block still cited by real records isn't deleted outright and will reappear until those records are edited or removed.
+                        </div>
+                        <div id="blocksInlineEdit" class="no-print" style="display:none;margin:0 16px 12px;padding:10px 14px;background:#eef4ff;border:1.5px solid #bcd0f5;border-radius:10px;align-items:center;gap:12px;flex-wrap:wrap;">
+                            <div style="font-size:13px;font-weight:800;color:#163f7c;">✏️ Edit Block <span id="blocksInlineNo" style="font-family:var(--font-mono);">—</span></div>
+                            <div class="field" style="margin:0;position:relative;min-width:230px;">
+                                <input type="text" class="filter-input" id="blocksInlineName" autocomplete="off" placeholder="Block Name" aria-label="Block Name"
+                                    oninput="showFieldAC('blocksInlineName','ac_blocksInlineName','Block Name')" onblur="hideAC('ac_blocksInlineName')"
+                                    onkeydown="if(event.key==='Enter'){event.preventDefault();blocksInlineSave();}else if(event.key==='Escape'){blocksInlineCancel();}">
+                                <div class="ac-list" id="ac_blocksInlineName" style="display:none"></div>
+                            </div>
+                            <div class="field" style="margin:0;display:flex;align-items:center;gap:6px;">
+                                <label style="margin:0;font-size:11px;font-weight:700;color:#64748b;">TEAM</label>
+                                <select class="filter-input" id="blocksInlineTeam" aria-label="Team No"></select>
+                            </div>
+                            <button type="button" class="btn btn-primary btn-sm" onclick="blocksInlineSave()">💾 Save</button>
+                            <button type="button" class="btn btn-ghost btn-sm" onclick="blocksInlineCancel()">Cancel</button>
+                            <span style="font-size:11.5px;color:#64748b;">Tick one block to edit it here. Tick more than one for Bulk Update or Delete.</span>
                         </div>
                         <table class="breakdown-table" id="blocksTable" style="width:470px;table-layout:fixed;">
                             <thead><tr><th style="width:32px;"><input type="checkbox" id="blocksSelAll" onclick="blocksToggleAll(this)"></th><th style="width:44px;">Sno</th><th class="sortable" style="width:84px;" data-col="no" onclick="blocksSortBy('no')">Block No<span class="sort-arrow"> ▲</span></th><th class="sortable" style="width:220px;" data-col="name" onclick="blocksSortBy('name')">Block Name<span class="sort-arrow"> </span></th><th class="sortable" style="width:60px;" data-col="team" onclick="blocksSortBy('team')">Team<span class="sort-arrow"> </span></th></tr></thead>
@@ -7831,13 +7858,20 @@ html.wdd-unlocked #wddPinLock{display:none}
         // copy rather than going stale. WDD_BUILD_VERSION is a simple
         // human-readable label (bump it on meaningful rounds of changes);
         // WDD_BUILD_NUMBER/TIMESTAMP track the exact edit.
-        const WDD_BUILD_VERSION = "v3.09";
-        const WDD_BUILD_TIMESTAMP = "2026-11-21 18:47 local time (UTC+03:00)";
-        const WDD_BUILD_NUMBER = "20261121.1847";
+        const WDD_BUILD_VERSION = "v3.15";
+        const WDD_BUILD_TIMESTAMP = "2026-11-25 07:44 local time (UTC+03:00)";
+        const WDD_BUILD_NUMBER = "20261125.0744";
         // REQUIRED BUILD CHANGELOG: update this list and the build number /
         // timestamp every time the HTML build is changed. On first load of a
         // new build, the entry is persisted to the Activity Log's Updated Values.
         const WDD_BUILD_CHANGES = [
+            "Project status lifecycle: new Submitted status - Completed is only for a project whose survey is done but not yet submitted; a project with a Submission Date (not approved) is now Submitted; Closed when the client approves. Set automatically from the Submission Date on every save, in the Add/Edit form, Quick Status Update and Data Submission reminders; projects already submitted to the client are switched once when this version opens (logged in the Activity Log). Dashboards, team / contractor / management reports and Data Health still count Submitted projects as survey-completed, so their numbers do not change; Submitted is also in the status filters, bulk edit, colours and the KPI drill-downs",
+            "Data Assistant: project details now show Project Added On (the project's Create date from the Activity Log) above Last Updated",
+            "Reminders: Archived Reminders now open sorted by Date newest to oldest (same-day items by time, latest first) - this is the default each time; the Active list keeps its oldest-due-first order; clicking a column header changes only the view you are in",
+            "Resubmissions: the EWA Engineer field now suggests names as you type - from engineers already used in Resubmissions and from the EWA people recorded in the Maintenance module (Maintenance Survey Requested Person, EWA QC Requested Person)",
+            "Resubmissions: removed the Submission Date validation for NHC projects - an NHC Project Number is now accepted whether its Submission Date is blank or filled (Submission Date only started being entered later); the client Submission Date is fetched when there is one and left empty otherwise; WDD Project Registry projects still need a Submission Date",
+            "Block Details: tick the checkbox of a single block and an edit bar appears above the table (Block Name + Team No, Save / Cancel, Enter saves, Esc cancels) - no need to pick the block from the Edit Block drop-down; tick more than one for Bulk Update / Delete as before; saving renames records exactly like the Edit Block window",
+            "Block Details - Cleanup Block Names: new Ignore button on each block - an ignored block never shows in the cleanup list again and its amber mismatch marker on the Blocks page goes away; an Ignored blocks list lets you restore any of them; each ignore / restore is written to the Activity Log",
             "Theme: the default sidebar theme is now Midnight (a browser that only had the old automatic Default saved is switched once; Forest choices are kept; any theme picked from the swatches afterwards, including Default, is respected)",
             "NHC exports: Excel, custom-field Excel and custom print now always list the records oldest to newest by Date (they followed the order the records were entered in, so a late entry with an earlier date landed at the bottom); same-date records keep their entry order and a manifold's meters stay together",
             "Resubmissions: removed the \"matching the filters\" text from the KPI cards (the numbers still follow the filters)",
@@ -8480,7 +8514,7 @@ html.wdd-unlocked #wddPinLock{display:none}
                 // in the app (Project Records table, etc.) — Pending is
                 // shown as "In Progress" there too, so it gets the same
                 // color as In Progress here.
-                const STATUS_COLOR = { "Completed": "#2484e4", "In Progress": "#475569", "Pending": "#475569",
+                const STATUS_COLOR = { "Completed": "#2484e4", "Submitted": "#0f766e", "In Progress": "#475569", "Pending": "#475569",
                     "Closed": "#6d28d9", "On Hold": "#9f1239", "Cancelled": "#9f1239", "Partial": "#92400e", "Not Started": "#64748b" };
                 const line = (label, v) => `<div style="padding:4px 0;font-size:13.5px;color:#0f172a;">
                     <b>${mgmtEscape(label)}:</b> ${v}</div>`;
@@ -8795,6 +8829,10 @@ html.wdd-unlocked #wddPinLock{display:none}
                     migrated = true;
                 }
             });
+            // Projects already submitted to the client but still marked Completed become Submitted.
+            // Counted here; saved + logged + announced once the page has finished starting.
+            window.__wddStatusMigrated = wddNormalizeProjectStatuses(records);
+            if (window.__wddStatusMigrated) migrated = true;
             if (migrated) saveData();
         }
 
@@ -9300,6 +9338,7 @@ html.wdd-unlocked #wddPinLock{display:none}
         }
 
         function saveData() {
+            wddNormalizeProjectStatuses(records); // Completed + Submission Date => Submitted (wddDeriveProjectStatus)
             localStorage.setItem("wdd_survey_data", JSON.stringify(records));
             touchLastUpdate('survey');
             // The topbar's "N records" / date-range badges (updateTopbarStats)
@@ -9318,6 +9357,17 @@ html.wdd-unlocked #wddPinLock{display:none}
             // category's section is the one actually on screen.
             if ((TOPBAR_CATEGORY[currentSectionId] || 'project') === 'project') updateTopbarStats('project');
         }
+
+        function wddStatusMigrationNotice() {
+            const n = window.__wddStatusMigrated || 0;
+            window.__wddStatusMigrated = 0;
+            if (!n) return;
+            try { saveData(); } catch (e) {}
+            try { trackActivity("survey", "edited", n, n + " projects already submitted to the client: Status Completed to Submitted", { "Status": "Completed" }, { "Status": "Submitted" }); } catch (e) {}
+            try { showAutoBackupToast("✅ " + n + " project" + (n === 1 ? "" : "s") + " already submitted to the client now show the status Submitted."); } catch (e) {}
+            try { applyFilters(); renderDashboard(); } catch (e) {}
+        }
+        window.wddStatusMigrationNotice = wddStatusMigrationNotice;
 
         // ---- Quick Status Update (Project Records) ----
         // Lets a user jump straight to updating Completed / Submitted /
@@ -9372,13 +9422,13 @@ html.wdd-unlocked #wddPinLock{display:none}
             // Status hierarchy: Completed -> Submitted -> Approved. Each step
             // requires the previous one to already be true on this record —
             // reject out-of-order updates instead of silently applying them.
-            if (status === "Submitted" && r["Status"] !== "Completed") {
+            if (status === "Submitted" && !wddSurveyDone(r["Status"])) {
                 showMsg(`Cannot mark "${r["Prj Number"]}" as Submitted — it must be marked Completed first.`, true);
                 return;
             }
             if (status === "Approved" &&
-                (r["Status"] !== "Completed" || !String(r["Submission Date"] || "").trim())) {
-                const missing = r["Status"] !== "Completed" ? "Completed and Submitted" : "Submitted";
+                (!wddSurveyDone(r["Status"]) || !String(r["Submission Date"] || "").trim())) {
+                const missing = !wddSurveyDone(r["Status"]) ? "Completed and Submitted" : "Submitted";
                 showMsg(`Cannot mark "${r["Prj Number"]}" as Approved — it must be marked ${missing} first.`, true);
                 return;
             }
@@ -9411,6 +9461,7 @@ html.wdd-unlocked #wddPinLock{display:none}
                 // reviewed yet — set Approved explicitly to "NO" (a real
                 // decided state) rather than leaving it blank/undetermined.
                 r["Approved"] = "NO";
+                r["Status"] = "Submitted"; // sent to the client: Completed -> Submitted
                 // Push the Submission Date to this project's QC record too,
                 // same as the full Add/Edit Entry form does.
                 syncSubmissionDateToQcRecords(r["Prj Number"], dateVal);
@@ -10929,6 +10980,13 @@ html.wdd-unlocked #wddPinLock{display:none}
                 ...(typeof msRecords !== "undefined" ? msRecords.map(r => r["Surveyor"]) : []),
                 ...(typeof contactRecords !== "undefined" ? contactRecords.map(r => r.name) : [])
             ],
+            // Resubmissions - EWA Engineer: names already used in Resubmissions, plus the EWA people
+            // recorded in the Maintenance module (Maintenance Survey Requested Person, EWA QC Requested Person)
+            "EWA Engineer": () => [
+                ...(typeof resubRecords !== "undefined" ? resubRecords.map(r => r.engineer) : []),
+                ...(typeof msRecords !== "undefined" ? msRecords.map(r => r["Requested Person"]) : []),
+                ...(typeof ewaqcRecords !== "undefined" ? ewaqcRecords.map(r => r.person) : [])
+            ],
             "Requested Person": () => [
                 ...(typeof msRecords !== "undefined" ? msRecords.map(r => r["Requested Person"]) : []),
                 ...(typeof ewaqcRecords !== "undefined" ? ewaqcRecords.map(r => r.person) : []),
@@ -11127,7 +11185,7 @@ html.wdd-unlocked #wddPinLock{display:none}
         // Cancelled/Completed/In Progress/Partial/On Hold) — this priority
         // order surfaces what needs attention first: In Progress, then
         // On Hold, then Completed, with any other status last.
-        const STATUS_SORT_PRIORITY = { "In Progress": 0, "Not Started": 1, "On Hold": 2, "Completed": 3 };
+        const STATUS_SORT_PRIORITY = { "In Progress": 0, "Not Started": 1, "On Hold": 2, "Completed": 3, "Submitted": 3 };
 
         // "Resubmission" is a computed column (never stored on the record): Yes when the
         // project has at least one entry in the Resubmissions module, otherwise No.
@@ -11249,6 +11307,12 @@ html.wdd-unlocked #wddPinLock{display:none}
                 finalStatus = "Closed";
             } else if (rawStatus === "Closed") {
                 finalApproved = "YES";
+            } else {
+                // Completed + a Submission Date means it has been sent to the client -> Submitted;
+                // Submitted with the date removed goes back to Completed.
+                const subForm = String(getFieldValue("f_submission") || "").trim();
+                if (rawStatus === "Completed" && subForm) finalStatus = "Submitted";
+                else if (rawStatus === "Submitted" && !subForm) finalStatus = "Completed";
             }
             const obj = {
                 "Prj Number": prj,
@@ -11509,7 +11573,7 @@ html.wdd-unlocked #wddPinLock{display:none}
         const MULTISELECT_DEFS = {
             filterStatus: {
                 label: "Status", allLabel: "All Status",
-                options: ["Completed", "Closed", "Partial", "Not Started", "In Progress", "On Hold", "Cancelled"]
+                options: ["Completed", "Submitted", "Closed", "Partial", "Not Started", "In Progress", "On Hold", "Cancelled"]
             },
             filterCategory: {
                 label: "Category", allLabel: "All Categories",
@@ -11823,7 +11887,7 @@ html.wdd-unlocked #wddPinLock{display:none}
             // Match the card's own definition: submitted, not yet approved,
             // AND not already Closed (a Closed record is a separate end
             // state, counted on its own "Closed Projects" card instead).
-            setMultiValues('filterStatus', ['Completed', 'Partial', 'In Progress', 'On Hold', 'Cancelled']);
+            setMultiValues('filterStatus', ['Completed', 'Submitted', 'Partial', 'In Progress', 'On Hold', 'Cancelled']);
             applyFilters();
         }
         function dashDrillCurrentMonthCompleted() {
@@ -11838,7 +11902,7 @@ html.wdd-unlocked #wddPinLock{display:none}
             // though the card's own number never respected that filter —
             // clear it back out rather than copying dashYear over.
             document.getElementById('filterYear').value = '';
-            setMultiValues('filterStatus', ['Completed']);
+            setMultiValues('filterStatus', ['Completed', 'Submitted']);
             const now = new Date();
             const first = new Date(now.getFullYear(), now.getMonth(), 1);
             const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
@@ -12255,10 +12319,10 @@ html.wdd-unlocked #wddPinLock{display:none}
                 statusMap[s] = (statusMap[s] || 0) + 1;
             });
             const statusColor = {
-                "Completed": "#1a6bc4", "Closed": "#047857", "Partial": "#0891b2", "In Progress": "#b45309",
+                "Completed": "#1a6bc4", "Submitted": "#0f766e", "Closed": "#047857", "Partial": "#0891b2", "In Progress": "#b45309",
                 "On Hold": "#b91c1c", "Cancelled": "#6b7280", "Not Started": "#64748b", "Not set": "#94a3b8"
             };
-            const statusOrder = ["Completed", "Closed", "Partial", "Not Started", "In Progress", "On Hold", "Cancelled", "Not set"];
+            const statusOrder = ["Completed", "Submitted", "Closed", "Partial", "Not Started", "In Progress", "On Hold", "Cancelled", "Not set"];
             const statusPills = statusOrder.filter(s => statusMap[s]).map(s =>
                 `<span style="color:${statusColor[s]}; font-weight:600;">${s}: ${statusMap[s]}</span>`
             ).join(" ");
@@ -12458,7 +12522,9 @@ html.wdd-unlocked #wddPinLock{display:none}
                         let cls;
                         if (r["Status"] === "Closed" || String(r["Approved"] || "").trim().toUpperCase() === "YES") {
                             cls = "closed";
-                        } else if (normalizeStatusValue(r["Status"]) === "Completed") {
+                        } else if (normalizeStatusValue(r["Status"]) === "Submitted") {
+                            cls = "submitted";
+                        } else if (wddSurveyDone(r["Status"])) {
                             cls = "survey-done";
                         } else {
                             cls = map[r["Status"]] || "none";
@@ -12744,7 +12810,7 @@ html.wdd-unlocked #wddPinLock{display:none}
 
             // Status counts
             const sc = { Completed: 0, Partial: 0, "In Progress": 0, "On Hold": 0, Closed: 0, "Not Started": 0 };
-            source.forEach(r => { const st = r["Status"] === "Pending" ? "In Progress" : r["Status"]; if (sc[st] !==
+            source.forEach(r => { const st = wddStatusForStats(r["Status"]); if (sc[st] !==
                     undefined) sc[st]++; });
             document.getElementById("cardStatusLine").innerHTML =
                 `✅ ${sc.Completed}  ⚠️ ${sc.Partial}  🔄 ${sc["In Progress"]}  🛑 ${sc["On Hold"]}  🔒 ${sc.Closed}  ⏳ ${sc["Not Started"]} ${yearTag}`;
@@ -12826,7 +12892,7 @@ html.wdd-unlocked #wddPinLock{display:none}
                 const team = normalizeTeamValue(r["Team"]);
                 if (!TEAM_LIST.includes(team)) return;
                 teamTotals[team]++;
-                const st = r["Status"] === "Pending" ? "In Progress" : r["Status"];
+                const st = wddStatusForStats(r["Status"]);
                 const normSt = normalizeStatusValue(st);
                 if (normSt === "Completed") teamCompleted[team]++;
                 else if (normSt === "In Progress") teamInProgress[team]++;
@@ -12846,7 +12912,7 @@ html.wdd-unlocked #wddPinLock{display:none}
             const nowD = new Date();
             const curYM = `${nowD.getFullYear()}-${String(nowD.getMonth() + 1).padStart(2, "0")}`;
             const curMonthCompleted = records.filter(r => {
-                const st = r["Status"] === "Pending" ? "In Progress" : r["Status"];
+                const st = wddStatusForStats(r["Status"]);
                 return normalizeStatusValue(st) === "Completed" && r["Last Survey"] && String(r["Last Survey"]).slice(0, 7) === curYM;
             }).length;
             document.getElementById("currentMonthCompleted").textContent = curMonthCompleted;
@@ -12987,7 +13053,7 @@ html.wdd-unlocked #wddPinLock{display:none}
             const el = document.getElementById("dashHighlights");
             if (!el) return;
             const total = source.length;
-            const completed = source.filter(r => r["Status"] === "Completed").length;
+            const completed = source.filter(r => wddSurveyDone(r["Status"])).length;
             const closed = source.filter(r => r["Approved"] === "YES").length;
             const gis = source.filter(r => r["GIS Data"] === "YES" || r["GIS Data"] === "Yes").length;
             const notClosed = completed - closed;
@@ -13093,7 +13159,7 @@ html.wdd-unlocked #wddPinLock{display:none}
                 SERVICE_FIELDS.forEach(f => map[k].service += Number(r[f] || 0));
                 map[k].count++;
                 if (r["GIS Data"] === "YES") map[k].gis++;
-                const st = r["Status"] === "Pending" ? "In Progress" : r["Status"];
+                const st = wddStatusForStats(r["Status"]);
                 // Completed = survey finished, client has NOT approved yet.
                 // Closed = survey finished AND submitted AND approved by
                 // the client. These are separate, mutually exclusive
@@ -13241,7 +13307,7 @@ html.wdd-unlocked #wddPinLock{display:none}
                 const k = raw || "Not Specified";
                 if (!map[k]) map[k] = { total: 0, completed: 0, closed: 0, stopped: 0, notStarted: 0 };
                 map[k].total++;
-                const st = r["Status"] === "Pending" ? "In Progress" : r["Status"];
+                const st = wddStatusForStats(r["Status"]);
                 if (st === "Completed") map[k].completed++;
                 else if (st === "Closed") map[k].closed++;
                 else if (st === "On Hold") map[k].stopped++;
@@ -15222,7 +15288,7 @@ html.wdd-unlocked #wddPinLock{display:none}
                 if (!map[k]) map[k] = { count: 0, gis: 0, completed: 0, closed: 0, inProgress: 0, notStarted: 0, stopped: 0 };
                 map[k].count++;
                 if (r["GIS Data"] === "YES") map[k].gis++;
-                const st = r["Status"] === "Pending" ? "In Progress" : r["Status"];
+                const st = wddStatusForStats(r["Status"]);
                 if (st === "Completed") map[k].completed++;
                 else if (st === "In Progress") map[k].inProgress++;
                 else if (st === "Not Started") map[k].notStarted++;
@@ -15284,9 +15350,38 @@ html.wdd-unlocked #wddPinLock{display:none}
             return result;
         }
 
+        // ---- Project status lifecycle (WDD Project Registry) -------------------------------------
+        //   Not Started -> In Progress -> Completed (survey finished) -> Submitted (sent to the client)
+        //   -> Closed (client approved).
+        // Completed is only for a project whose survey is done and that has NOT been submitted yet.
+        // wddSurveyDone() is true for Completed AND Submitted, so every report that counts "survey
+        // completed" keeps its numbers; wddStatusForStats() folds Submitted into Completed (and the
+        // old Pending into In Progress) for the dashboard / team / contractor breakdowns.
+        function wddSurveyDone(st) { const v = normalizeStatusValue(st); return v === "Completed" || v === "Submitted"; }
+        function wddStatusForStats(st) { return st === "Pending" ? "In Progress" : st === "Submitted" ? "Completed" : st; }
+        // What the Status should be, given the Submission Date and Approved: Completed + Submission Date
+        // (not approved) -> Submitted; Submitted without a Submission Date -> back to Completed;
+        // Submitted + Approved YES -> Closed. Any other status is left alone.
+        function wddDeriveProjectStatus(r) {
+            const st = String(r["Status"] || "").trim();
+            const sub = String(r["Submission Date"] || "").trim();
+            const appr = String(r["Approved"] || "").trim().toUpperCase();
+            if (st === "Submitted" && appr === "YES") return "Closed";
+            if (appr === "YES") return st;
+            if (st === "Completed" && sub) return "Submitted";
+            if (st === "Submitted" && !sub) return "Completed";
+            return st;
+        }
+        function wddNormalizeProjectStatuses(list) {
+            let n = 0;
+            (list || []).forEach(r => { const d = wddDeriveProjectStatus(r); if (d !== String(r["Status"] || "").trim()) { r["Status"] = d; n++; } });
+            return n;
+        }
+
         function normalizeStatusValue(s) {
             const v = String(s || "").trim();
             const low = v.toLowerCase();
+            if (low === "submitted") return "Submitted";
             if (low === "completed" || low === "complete" || low === "done") return "Completed";
             if (low === "pending") return "In Progress";
             if (low === "not started" || low === "notstarted" || low === "not-started") return "Not Started";
@@ -15772,7 +15867,7 @@ html.wdd-unlocked #wddPinLock{display:none}
                 const t = r["Team"] || "(Unassigned)";
                 if (!tmap[t]) tmap[t] = { count: 0, completed: 0, closed: 0, inProgress: 0, notStarted: 0, stopped: 0, other: 0 };
                 tmap[t].count++;
-                const st = r["Status"] === "Pending" ? "In Progress" : r["Status"];
+                const st = wddStatusForStats(r["Status"]);
                 if (st === "Completed") { cmap[k].completed++; tmap[t].completed++; }
                 else if (st === "Closed") { cmap[k].closed++; tmap[t].closed++; }
                 else if (st === "In Progress") { cmap[k].inProgress++; tmap[t].inProgress++; }
@@ -15785,7 +15880,7 @@ html.wdd-unlocked #wddPinLock{display:none}
             const cEntries = Object.entries(cmap).sort((a, b) => b[1].count - a[1].count);
             const tEntries = Object.entries(tmap).sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }));
             const sc = { Completed: 0, Closed: 0, "In Progress": 0, "On Hold": 0, "Not Started": 0 };
-            source.forEach(r => { const st = r["Status"] === "Pending" ? "In Progress" : r["Status"]; if (sc[st] !==
+            source.forEach(r => { const st = wddStatusForStats(r["Status"]); if (sc[st] !==
                     undefined) sc[st]++; });
             const dates = source.map(r => r["Last Survey"]).filter(Boolean).sort();
             const dateRange = dates.length ? `${dmy(dates[0])} to ${dmy(dates[dates.length-1])}` : "";
@@ -15851,7 +15946,7 @@ html.wdd-unlocked #wddPinLock{display:none}
                 if (!map[k]) map[k] = { count: 0, gis: 0, completed: 0, closed: 0, inProgress: 0, notStarted: 0, stopped: 0 };
                 map[k].count++;
                 if (r["GIS Data"] === "YES") map[k].gis++;
-                const st = r["Status"] === "Pending" ? "In Progress" : r["Status"];
+                const st = wddStatusForStats(r["Status"]);
                 if (st === "Completed") map[k].completed++;
                 else if (st === "In Progress") map[k].inProgress++;
                 else if (st === "Not Started") map[k].notStarted++;
@@ -16076,7 +16171,7 @@ html.wdd-unlocked #wddPinLock{display:none}
         // =====================================================================
         const BULK_FIELD_DEFS = {
             "Received": { type: "text" },
-            "Status": { type: "select", options: ["Completed", "Closed", "Partial", "Not Started", "In Progress", "On Hold", "Cancelled"] },
+            "Status": { type: "select", options: ["Completed", "Submitted", "Closed", "Partial", "Not Started", "In Progress", "On Hold", "Cancelled"] },
             "Category": { type: "select", options: ["Extension", "Replacement", "Special", "Diversion", "MOH", "Private", "Maintenance", "Emergency Work"] },
             "Team": { type: "select", options: ["07", "08", "09", "10"] },
             "Approved": { type: "select", options: ["YES", "NO"] },
@@ -21166,6 +21261,10 @@ html.wdd-unlocked #wddPinLock{display:none}
         let reminderShowArchived = false;
         let reminderSortCol = "dueDate",
             reminderSortDir = "asc";
+        // Archived Reminders keep their own sort: newest Date first by default (the Active list
+        // stays oldest-due first). Clicking a column header changes only the view you are in.
+        let reminderArchSortCol = "dueDate",
+            reminderArchSortDir = "desc";
 
         function remindersLoad() {
             const raw = wddGetItemHydrated("wdd_reminders_data");
@@ -21402,7 +21501,7 @@ html.wdd-unlocked #wddPinLock{display:none}
             const prev = { ...proj };
             const dateVal = todayDateStr();
             let completedNow = false;
-            if (proj["Status"] !== "Completed") {
+            if (!wddSurveyDone(proj["Status"])) {
                 // Submitting data means the survey work is done, but the Registry only
                 // allows Submitted on a Completed project. Ask, rather than silently
                 // skipping or silently changing the status.
@@ -21419,6 +21518,7 @@ html.wdd-unlocked #wddPinLock{display:none}
             }
             proj["Submission Date"] = dateVal;
             proj["Approved"] = "NO";
+            proj["Status"] = "Submitted"; // sent to the client
             try { syncSubmissionDateToQcRecords(name, dateVal); } catch (e) {}
             saveData();
             trackActivity("survey", "edited", 1, name, prev, { ...proj });
@@ -21426,7 +21526,7 @@ html.wdd-unlocked #wddPinLock{display:none}
             try { applyFilters(); renderDashboard(); } catch (e) {}
             rem.submittedProject = name;
             rem.submittedOn = dateVal;
-            return `${name} marked ${prev["Status"] !== "Completed" ? "Completed and " : ""}Submitted in the WDD Project Registry (${dmy(dateVal)}).`;
+            return `${name} marked ${!wddSurveyDone(prev["Status"]) ? "Completed and " : ""}Submitted in the WDD Project Registry (${dmy(dateVal)}).`;
         }
         // What the linked project looks like in the Registry right now, shown
         // under the project number in the Reminders list so both stay in step.
@@ -21436,7 +21536,7 @@ html.wdd-unlocked #wddPinLock{display:none}
             let txt, color = "var(--muted)";
             if (!proj) { txt = "⚠ not in Registry"; color = "#b45309"; }
             else if (String(proj["Submission Date"] || "").trim()) { txt = "✅ Submitted " + dmy(proj["Submission Date"]); color = "#15803d"; }
-            else if (proj["Status"] === "Completed") txt = "Completed — ready to submit";
+            else if (wddSurveyDone(proj["Status"])) txt = "Completed — ready to submit";
             else txt = "Status: " + (proj["Status"] || "—") + " (not Completed yet)";
             return `<br><span style="font-size:10.5px;color:${color};">${escHtml(txt)}</span>`;
         }
@@ -21639,16 +21739,20 @@ html.wdd-unlocked #wddPinLock{display:none}
                     String(r.note || "").toLowerCase().includes(search) ||
                     String(r.linkedProject || "").toLowerCase().includes(search);
             }).sort((a, b) => {
-                const dir = reminderSortDir === "asc" ? 1 : -1;
-                if (reminderSortCol === "title") return dir * String(a.title || "").toLowerCase().localeCompare(String(b
+                const sCol = reminderShowArchived ? reminderArchSortCol : reminderSortCol;
+                const dir = (reminderShowArchived ? reminderArchSortDir : reminderSortDir) === "asc" ? 1 : -1;
+                if (sCol === "title") return dir * String(a.title || "").toLowerCase().localeCompare(String(b
                     .title || "").toLowerCase());
-                return dir * String(a.dueDate || "").localeCompare(String(b.dueDate || ""));
+                return dir * (String(a.dueDate || "").localeCompare(String(b.dueDate || "")) ||
+                    String(a.dueTime || "").localeCompare(String(b.dueTime || "")));
             });
 
             document.querySelectorAll('#reminderTable thead th[data-col]').forEach(th => {
                 const c = th.dataset.col;
                 const arrow = th.querySelector(".sort-arrow");
-                if (arrow) arrow.textContent = reminderSortCol === c ? (reminderSortDir === "asc" ? " ▲" : " ▼") : " ";
+                const aCol = reminderShowArchived ? reminderArchSortCol : reminderSortCol;
+                const aDir = reminderShowArchived ? reminderArchSortDir : reminderSortDir;
+                if (arrow) arrow.textContent = aCol === c ? (aDir === "asc" ? " ▲" : " ▼") : " ";
             });
 
             const activeTotal = reminderRecords.filter(r => !r.archived).length;
@@ -21726,9 +21830,15 @@ html.wdd-unlocked #wddPinLock{display:none}
         }
 
         function reminderSortBy(col) {
-            reminderSortDir = (reminderSortCol === col && reminderSortDir === "asc") ? "desc" : (reminderSortCol === col ?
-                "asc" : "asc");
-            reminderSortCol = col;
+            if (reminderShowArchived) {
+                reminderArchSortDir = (reminderArchSortCol === col && reminderArchSortDir === "asc") ? "desc" :
+                    (reminderArchSortCol === col ? "asc" : "asc");
+                reminderArchSortCol = col;
+            } else {
+                reminderSortDir = (reminderSortCol === col && reminderSortDir === "asc") ? "desc" : (reminderSortCol === col ?
+                    "asc" : "asc");
+                reminderSortCol = col;
+            }
             reminderRender();
         }
 
@@ -23131,9 +23241,9 @@ html.wdd-unlocked #wddPinLock{display:none}
         }
 
         // ---- the "must already be submitted" rule ----------------------------
-        // Only a project that has been submitted to the client can be resubmitted. It can come from the
-        // WDD Project Registry (needs a Submission Date there) or from NHC Records (needs a Submission
-        // Date on one of its records). The registry is checked first.
+        // A project can be resubmitted if it comes from the WDD Project Registry (needs a Submission
+        // Date there) or from NHC Records (NO Submission Date needed - it only started being entered
+        // later). The registry is checked first.
         function resubFindRegistryProject(pn) {
             return (typeof records !== "undefined" ? records : [])
                 .find(r => String(r["Prj Number"] || "").trim().toLowerCase() === String(pn || "").trim().toLowerCase()) || null;
@@ -23160,7 +23270,10 @@ html.wdd-unlocked #wddPinLock{display:none}
                 return { ok: true, source: "WDD", rec: reg, nhcRecs: [], submissionDate: reg["Submission Date"], message: "" };
             const nhcRecs = resubFindNhcRecords(pn);
             const nhcDate = resubNhcSubmissionDate(nhcRecs);
-            if (nhcRecs.length && nhcDate)
+            // NHC projects: NO Submission Date check - Submission Date only started being filled in
+            // later, so an NHC project can be resubmitted whether its Submission Date is blank or not
+            // (the date is simply left empty when there is none).
+            if (nhcRecs.length)
                 return { ok: true, source: "NHC", rec: null, nhcRecs, submissionDate: nhcDate, message: "" };
             if (!reg && !nhcRecs.length) return { ok: false, source: "", rec: null, nhcRecs: [], submissionDate: "",
                 message: `Project "${pn}" was not found in the WDD Project Registry or in NHC Records, so it can't be confirmed as submitted to the client. Only projects that have been submitted can be resubmitted.` };
@@ -23185,7 +23298,7 @@ html.wdd-unlocked #wddPinLock{display:none}
                 setSub("");
                 say("⛔ " + (chk.source === "WDD" ? "Not submitted to the client yet (no Submission Date in the WDD Project Registry)" :
                     chk.source === "NHC" ? "Not submitted to the client yet (no Submission Date in NHC Records)" :
-                    "Not found in the WDD Project Registry or NHC Records") + " -- only projects already submitted to the client can be resubmitted.", "#b91c1c");
+                    "Not found in the WDD Project Registry or NHC Records") + (chk.source === "WDD" ? " -- WDD projects must already be submitted to the client." : "."), "#b91c1c");
                 resubSetBlocked(true);
                 return;
             }
@@ -23209,9 +23322,14 @@ html.wdd-unlocked #wddPinLock{display:none}
                 // NHC work is Team 10.
                 resubFillTeamOptions("10"); set("resub_team", "10"); got.push("Team");
             }
-            setSub(chk.submissionDate); got.push("Submission Date");
-            say("✓ Submitted to the client on " + resubFmtDate(chk.submissionDate) + " -- fetched from the " +
-                (chk.source === "NHC" ? "NHC Records" : "WDD Project Registry") + ": " + got.join(", "), "#166534");
+            setSub(chk.submissionDate);
+            if (chk.submissionDate) {
+                got.push("Submission Date");
+                say("✓ Submitted to the client on " + resubFmtDate(chk.submissionDate) + " -- fetched from the " +
+                    (chk.source === "NHC" ? "NHC Records" : "WDD Project Registry") + ": " + got.join(", "), "#166534");
+            } else {
+                say("✓ Found in NHC Records (no Submission Date entered there - not required for NHC) -- fetched: " + got.join(", "), "#166534");
+            }
         }
 
         // Picking a communication mode with no date yet fills in today's date
@@ -25559,7 +25677,7 @@ html.wdd-unlocked #wddPinLock{display:none}
             let list = records.slice();
             if (filters.contractor) list = list.filter(r => r["Contractor"] === filters.contractor);
             if (filters.category) list = list.filter(r => r["Category"] === filters.category);
-            const st = r => (r["Status"] === "Pending" ? "In Progress" : r["Status"]);
+            const st = r => (wddStatusForStats(r["Status"]));
             if (filters.status) list = list.filter(r => st(r) === filters.status);
             const n = name => list.filter(r => st(r) === name).length;
             return { inProgress: n("In Progress"), notStarted: n("Not Started"), onHold: n("On Hold") };
@@ -26061,7 +26179,7 @@ html.wdd-unlocked #wddPinLock{display:none}
             const nhc = mgmtFilterNhc(filters);
             const maint = mgmtFilterMs(filters);
 
-            const completed = survey.filter(r => r["Status"] === "Completed").length;
+            const completed = survey.filter(r => wddSurveyDone(r["Status"])).length;
 
             const receivedResult = mgmtProjectsReceivedForPeriod(filters);
             const received = receivedResult.count;
@@ -26137,7 +26255,7 @@ html.wdd-unlocked #wddPinLock{display:none}
             const nhc = mgmtFilterNhc(filters);
             const maint = mgmtFilterMs(filters);
 
-            const completed = survey.filter(r => r["Status"] === "Completed").length;
+            const completed = survey.filter(r => wddSurveyDone(r["Status"])).length;
             // "Ongoing" is a current-status snapshot (a project doesn't have
             // a date field for "became ongoing on"), unlike Completed which
             // is scoped by its Last Survey date — so it isn't restricted to
@@ -26214,7 +26332,7 @@ html.wdd-unlocked #wddPinLock{display:none}
             const maint = mgmtFilterMs(filters);
 
             const total = survey.length;
-            const completed = survey.filter(r => r["Status"] === "Completed").length;
+            const completed = survey.filter(r => wddSurveyDone(r["Status"])).length;
             // In Progress / Not Started / On Hold: current snapshot of the whole registry (see mgmtSnapshotCounts).
             const snap = mgmtSnapshotCounts(filters);
             const inProgress = snap.inProgress;
@@ -26246,7 +26364,7 @@ html.wdd-unlocked #wddPinLock{display:none}
             const topArea = topBy("Area");
             // Completed projects (in this period) that are not yet client-approved -- counted on the same list,
             // not "completed minus closed" (two different bases that could even go negative).
-            const notClosed = survey.filter(r => r["Status"] === "Completed" && r["Approved"] !== "YES").length;
+            const notClosed = survey.filter(r => wddSurveyDone(r["Status"]) && r["Approved"] !== "YES").length;
 
             const highlights = [];
             if (topContractor) highlights.push(`Highest volume: <b>${mgmtEscape(topContractor[0])}</b> with ${topContractor[1]} project(s).`);
@@ -26369,7 +26487,7 @@ html.wdd-unlocked #wddPinLock{display:none}
                 const k = monthKey(d);
                 if (!map[k]) map[k] = { total: 0, completed: 0, closed: 0, stopped: 0 };
                 map[k].total++;
-                if (r["Status"] === "Completed") map[k].completed++;
+                if (wddSurveyDone(r["Status"])) map[k].completed++;
                 if (r["Status"] === "On Hold") map[k].stopped++;
                 if (r["Approved"] === "YES") map[k].closed++;
             });
@@ -26546,7 +26664,7 @@ html.wdd-unlocked #wddPinLock{display:none}
             // including them would give a misleading total. This overrides
             // any Status filter the person may have separately selected for
             // this report.
-            const survey = mgmtFilterSurvey({ ...filters, status: "" }).filter(r => r["Status"] === "Completed");
+            const survey = mgmtFilterSurvey({ ...filters, status: "" }).filter(r => wddSurveyDone(r["Status"]));
             function sumFields(rec, fields) { return fields.reduce((s, f) => s + (parseFloat(rec[f]) || 0), 0); }
             const mainTotal = Math.round(survey.reduce((s, r) => s + sumFields(r, MAIN_FIELDS), 0));
             const serviceTotal = Math.round(survey.reduce((s, r) => s + sumFields(r, PIPE_FIELDS), 0));
@@ -26630,7 +26748,7 @@ html.wdd-unlocked #wddPinLock{display:none}
         function mgmtBuildStatusSummary(filters) {
             const survey = mgmtFilterSurvey(filters);
             const total = survey.length;
-            const completed = survey.filter(r => r["Status"] === "Completed").length;
+            const completed = survey.filter(r => wddSurveyDone(r["Status"])).length;
             // In Progress / Not Started / On Hold: current snapshot of the whole registry (see mgmtSnapshotCounts).
             const snap = mgmtSnapshotCounts(filters);
             const inProgress = snap.inProgress;
@@ -26751,7 +26869,7 @@ html.wdd-unlocked #wddPinLock{display:none}
             function stats(list) {
                 return {
                     total: list.length,
-                    completed: list.filter(r => r["Status"] === "Completed").length,
+                    completed: list.filter(r => wddSurveyDone(r["Status"])).length,
                     stopped: list.filter(r => r["Status"] === "On Hold").length
                 };
             }
@@ -27329,7 +27447,7 @@ html.wdd-unlocked #wddPinLock{display:none}
 
         // ---- Project Registry-specific checks (all take a pre-filtered list) ----
         function dhCheckCompletedNotApproved(list) {
-            const completed = list.filter(r => r["Status"] === "Completed");
+            const completed = list.filter(r => wddSurveyDone(r["Status"]));
             const notClosed = completed.filter(r => r["Approved"] !== "YES");
             const pct = completed.length ? Math.round(notClosed.length / completed.length * 100) : 0;
             return { status: notClosed.length ? 'info' : 'ok', count: notClosed.length,
@@ -27338,7 +27456,7 @@ html.wdd-unlocked #wddPinLock{display:none}
         }
 
         function dhCheckInvalidStatus(list) {
-            const valid = new Set(["Completed", "Partial", "Not Started", "In Progress", "On Hold", "Cancelled", "Closed"]);
+            const valid = new Set(["Completed", "Submitted", "Partial", "Not Started", "In Progress", "On Hold", "Cancelled", "Closed"]);
             const bad = list.filter(r => r["Status"] && !valid.has(r["Status"]));
             return { status: bad.length ? 'warn' : 'ok', count: bad.length,
                 details: bad.map(r => `${dhEscape(r["Prj Number"])}: Status = "${dhEscape(r["Status"])}"`) };
@@ -27370,7 +27488,7 @@ html.wdd-unlocked #wddPinLock{display:none}
             // Completed — for In Progress or On Hold projects, a blank GIS
             // Data field is normal, not a data quality issue. Closed
             // projects are excluded too — see dhIsClosedProject above.
-            const missing = list.filter(r => r["Status"] === "Completed" && !dhIsClosedProject(r) &&
+            const missing = list.filter(r => wddSurveyDone(r["Status"]) && !dhIsClosedProject(r) &&
                 (r["GIS Data"] === undefined || r["GIS Data"] === null || r["GIS Data"] === ""));
             return { status: missing.length ? 'warn' : 'ok', count: missing.length,
                 details: missing.slice(0, 10).map(r => dhEscape(r["Prj Number"])) };
@@ -27390,7 +27508,7 @@ html.wdd-unlocked #wddPinLock{display:none}
         function dhCheckUtilityZeros(list) {
             const allUtilFields = [...MAIN_FIELDS, ...PIPE_FIELDS, ...FITTING_FIELDS, ...WSP_FIELDS];
             const allZero = list.filter(r => {
-                if (r["Status"] !== "Completed" || dhIsClosedProject(r)) return false;
+                if (!wddSurveyDone(r["Status"]) || dhIsClosedProject(r)) return false;
                 const hasAnyField = allUtilFields.some(f => r[f] !== undefined);
                 if (!hasAnyField) return false;
                 return allUtilFields.every(f => (parseFloat(r[f]) || 0) === 0 && r[f] !== '' && r[f] !== undefined);
@@ -27411,7 +27529,7 @@ html.wdd-unlocked #wddPinLock{display:none}
         function dhCheckUtilityBlank(list) {
             const allUtilFields = [...MAIN_FIELDS, ...PIPE_FIELDS, ...FITTING_FIELDS, ...WSP_FIELDS];
             const allBlank = list.filter(r => {
-                if (r["Status"] !== "Completed" || dhIsClosedProject(r)) return false;
+                if (!wddSurveyDone(r["Status"]) || dhIsClosedProject(r)) return false;
                 return allUtilFields.every(f => r[f] === undefined || r[f] === null || r[f] === '');
             });
             return { status: allBlank.length ? 'warn' : 'ok', count: allBlank.length,
@@ -27462,7 +27580,7 @@ html.wdd-unlocked #wddPinLock{display:none}
         // "missing a QC record" even though QC isn't due yet — a false
         // positive.
         function dhCheckQcCoverage(surveyList, qcList) {
-            const dueForQc = surveyList.filter(r => r["Status"] === "Completed");
+            const dueForQc = surveyList.filter(r => wddSurveyDone(r["Status"]));
             const qcByProj = {};
             (qcList || []).forEach(r => { if (r.projectNumber) qcByProj[r.projectNumber.toUpperCase()] = r; });
             const withQc = dueForQc.filter(r => qcByProj[String(r["Prj Number"] || "").toUpperCase()]);
@@ -27573,7 +27691,7 @@ html.wdd-unlocked #wddPinLock{display:none}
                     desc: 'Informational, not a data issue: a project only moves to Closed after client submission and approval — there\u2019s normally a gap after survey Completion while that\u2019s pending.',
                     run: () => dhCheckCompletedNotApproved(touchedSurvey) },
                 { group: 'Project Registry', id: 'pr-status-invalid', icon: '⚠️', title: 'Non-standard Status values',
-                    desc: 'Status values outside Completed / Partial / Not Started / In Progress / On Hold / Cancelled.',
+                    desc: 'Status values outside Completed / Submitted / Partial / Not Started / In Progress / On Hold / Cancelled / Closed.',
                     run: () => dhCheckInvalidStatus(touchedSurvey) },
                 { group: 'Project Registry', id: 'pr-approved-invalid', icon: '⚠️', title: 'Non-standard Approved values',
                     desc: 'Approved should only ever be YES, NO, or blank.',
@@ -27825,6 +27943,7 @@ html.wdd-unlocked #wddPinLock{display:none}
             // manually refresh or navigate away and back.
             safeRun(function () { setInterval(checkDueReminders, 60000); }, "reminderPolling");
             safeRun(function () { setTimeout(nhcCheckSubmissionPopup, 3000); }, "nhcSubmissionPopup");
+            safeRun(function () { setTimeout(wddStatusMigrationNotice, 2500); }, "statusMigrationNotice");
             safeRun(function () { setInterval(updateBackupStatusBadge, 60000); }, "backupChipRefresh");
             safeRun(renderDashboard, "renderDashboard");
             // Block Details' filter inputs have no server-side state of their
@@ -27981,7 +28100,7 @@ html.wdd-unlocked #wddPinLock{display:none}
                 fieldDefs: {
                     "Contractor": { type: "text" },
                     "Area": { type: "text" },
-                    "Status": { type: "select", options: ["Completed", "Closed", "Partial", "Not Started", "In Progress", "On Hold", "Cancelled"] },
+                    "Status": { type: "select", options: ["Completed", "Submitted", "Closed", "Partial", "Not Started", "In Progress", "On Hold", "Cancelled"] },
                     "Category": { type: "select", options: ["Extension", "Replacement", "Special", "Diversion", "MOH", "Private", "Maintenance", "Emergency Work"] },
                     "GIS Data": { type: "select", options: ["YES", "NO"] }
                 },
@@ -29106,7 +29225,46 @@ html.wdd-unlocked #wddPinLock{display:none}
             selAll.indeterminate = checkedCount > 0 && checkedCount < visibleKeys.length;
         }
 
+        // ---- Inline edit: tick exactly ONE block and its Name / Team can be edited right above the
+        // table - no need to pick it from the Edit Block drop-down. Saving reuses the same
+        // routine as the Edit Block window, so records are renamed exactly the same way. ----
+        let blocksInlineKey = null;
+        function blocksUpdateInlineEdit() {
+            const bar = document.getElementById("blocksInlineEdit");
+            if (!bar) return;
+            if (blocksSelected.size !== 1) { bar.style.display = "none"; blocksInlineKey = null; return; }
+            const key = Array.from(blocksSelected)[0];
+            if (blocksInlineKey === key && bar.style.display !== "none") return; // keep what is being typed
+            const b = collectBlockList().find(x => blockOptionValue(x) === key);
+            if (!b) { bar.style.display = "none"; blocksInlineKey = null; return; }
+            blocksInlineKey = key;
+            document.getElementById("blocksInlineNo").textContent = b.no;
+            document.getElementById("blocksInlineName").value = b.name;
+            const team = document.getElementById("blocksInlineTeam");
+            if (!team.options.length) team.innerHTML = Array.from(document.getElementById("blockEditTeam").options).map(o => `<option value="${o.value}">${o.textContent}</option>`).join("");
+            team.value = getBlockTeam(b.no) || "";
+            bar.style.display = "flex";
+            setTimeout(() => { const n = document.getElementById("blocksInlineName"); if (n && blocksInlineKey === key) { n.focus(); n.select(); } }, 30);
+        }
+        function blocksInlineSave() {
+            const key = blocksInlineKey; if (!key) return;
+            const idx = key.indexOf("|");
+            const sel = document.getElementById("blockEditSelect");
+            sel.innerHTML = `<option value="${key.replace(/"/g, "&quot;")}"></option>`;
+            sel.value = key;
+            document.getElementById("blockEditNo").value = key.slice(0, idx);
+            document.getElementById("blockEditName").value = document.getElementById("blocksInlineName").value;
+            document.getElementById("blockEditTeam").value = document.getElementById("blocksInlineTeam").value;
+            saveBlockEdit();
+            blocksInlineKey = null;
+            updateBlocksEditSelectedBtn();
+        }
+        function blocksInlineCancel() { blocksInlineKey = null; clearSelectedBlocks(); }
+        window.blocksInlineSave = blocksInlineSave;
+        window.blocksInlineCancel = blocksInlineCancel;
+
         function updateBlocksEditSelectedBtn() {
+            try { blocksUpdateInlineEdit(); } catch (e) { console.warn("blocks inline edit", e); }
             const btn = document.getElementById("blocksEditSelectedBtn");
             if (btn) {
                 const n = blocksSelected.size;
@@ -29639,7 +29797,12 @@ html.wdd-unlocked #wddPinLock{display:none}
         // =====================================================================
         let blockNameGroups = []; // [{ no, names: [{ raw, count }] }]
 
-        function collectBlockNameGroups() {
+        // Blocks the user chose to ignore in Cleanup Block Names (kept in this browser). An ignored
+        // block is left out of the cleanup list and of the amber mismatch markers on the Blocks page.
+        function wddIgnoredBlockNames() { try { return JSON.parse(localStorage.getItem("wdd_blockname_ignored") || "[]").map(String); } catch (e) { return []; } }
+        function wddSetIgnoredBlockNames(arr) { try { localStorage.setItem("wdd_blockname_ignored", JSON.stringify(Array.from(new Set(arr.map(String))))); } catch (e) {} }
+
+        function collectBlockNameGroups(includeIgnored) {
             const byBlock = {}; // no -> { name -> { count, locations: [{mod,label,multi}] } }
             const bump = (no, name, mod, label, multi) => {
                 byBlock[no] = byBlock[no] || {};
@@ -29704,11 +29867,15 @@ html.wdd-unlocked #wddPinLock{display:none}
             });
             groups.sort((a, b) => (parseFloat(a.no) || 0) - (parseFloat(b.no) || 0) || String(a.no).localeCompare(String(
                 b.no)));
-            return groups;
+            if (includeIgnored) return groups;
+            const ignored = new Set(wddIgnoredBlockNames());
+            return groups.filter(g => !ignored.has(String(g.no)));
         }
 
         function openBlockNameCleanup() {
             blockNameGroups = collectBlockNameGroups();
+            const ign = document.getElementById("bnIgnoredBtn");
+            if (ign) { const n = wddIgnoredBlockNames().length; ign.textContent = "🚫 Ignored blocks (" + n + ")"; ign.style.display = n ? "" : "none"; }
             const list = document.getElementById("blockNameCleanupList");
             if (!blockNameGroups.length) {
                 list.innerHTML =
@@ -29716,10 +29883,13 @@ html.wdd-unlocked #wddPinLock{display:none}
             } else {
                 list.innerHTML = blockNameGroups.map((group, gi) => `
                     <div style="border:1px solid var(--border,#e5e7eb);border-radius:8px;padding:10px 12px;margin-bottom:10px;">
-                        <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;margin-bottom:8px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+                        <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;">
                             <input type="checkbox" id="bnGroupChk_${gi}" onchange="document.getElementById('bnGroupBody_${gi}').style.opacity=this.checked?'1':'0.4'">
                             Block ${group.no} — ${group.names.length} different names
                         </label>
+                        <button type="button" class="btn btn-ghost btn-sm" onclick="ignoreBlockNameGroup(${gi})" title="These names are fine as they are - never show this block here again">🚫 Ignore</button>
+                        </div>
                         <div id="bnGroupBody_${gi}" style="opacity:0.4;">
                             ${group.names.map((item, ii) => `
                                 <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;padding:3px 0 3px 24px;">
@@ -29743,6 +29913,42 @@ html.wdd-unlocked #wddPinLock{display:none}
                 `).join("");
             }
             document.getElementById("blockNameCleanupModal").classList.add("show");
+        }
+
+        function ignoreBlockNameGroup(gi) {
+            const g = blockNameGroups[gi]; if (!g) return;
+            if (!confirm("Ignore Block " + g.no + "?\n\nIt will not appear in Cleanup Block Names again, and the ⚠️ marker on the Blocks page goes away. You can bring it back from \"Ignored blocks\".")) return;
+            wddSetIgnoredBlockNames(wddIgnoredBlockNames().concat([g.no]));
+            try { logActivityEntry("blocks", "edited", "Block " + g.no, { "Name check": "mismatch flagged" }, { "Name check": "ignored" }); } catch (e) {}
+            openBlockNameCleanup();
+            try { blocksRender(); } catch (e) {}
+        }
+
+        function showIgnoredBlockNames() {
+            const ign = wddIgnoredBlockNames();
+            const all = collectBlockNameGroups(true);
+            const list = document.getElementById("blockNameCleanupList");
+            if (!ign.length) { openBlockNameCleanup(); return; }
+            list.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
+                '<button type="button" class="btn btn-ghost btn-sm" onclick="openBlockNameCleanup()">← Back to cleanup</button>' +
+                '<button type="button" class="btn btn-ghost btn-sm" onclick="restoreIgnoredBlockName(null)">Restore all</button></div>' +
+                '<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">These blocks are hidden from Cleanup Block Names. Restore one to check it again.</div>' +
+                ign.map(no => {
+                    const g = all.find(x => String(x.no) === String(no));
+                    const names = g ? g.names.map(n => n.raw + " (" + n.count + ")").join(" / ") : "(no longer has more than one name)";
+                    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--border,#e5e7eb);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:12.5px;">' +
+                        '<span><strong>Block ' + String(no).replace(/</g, "&lt;") + '</strong> — <span style="color:var(--muted)">' + names.replace(/</g, "&lt;") + '</span></span>' +
+                        '<button type="button" class="btn btn-ghost btn-sm" onclick="restoreIgnoredBlockName(\'' + String(no).replace(/\\/g, "\\\\").replace(/'/g, "\\'") + '\')">Restore</button></div>';
+                }).join("");
+        }
+
+        function restoreIgnoredBlockName(no) {
+            const ign = wddIgnoredBlockNames();
+            const left = no === null ? [] : ign.filter(x => String(x) !== String(no));
+            wddSetIgnoredBlockNames(left);
+            ign.filter(x => !left.includes(x)).forEach(x => { try { logActivityEntry("blocks", "edited", "Block " + x, { "Name check": "ignored" }, { "Name check": "checked again" }); } catch (e) {} });
+            try { blocksRender(); } catch (e) {}
+            if (left.length) showIgnoredBlockNames(); else openBlockNameCleanup();
         }
 
         function closeBlockNameCleanup() {
@@ -29868,6 +30074,9 @@ html.wdd-unlocked #wddPinLock{display:none}
         }
 
         window.openBlockNameCleanup = openBlockNameCleanup;
+        window.ignoreBlockNameGroup = ignoreBlockNameGroup;
+        window.showIgnoredBlockNames = showIgnoredBlockNames;
+        window.restoreIgnoredBlockName = restoreIgnoredBlockName;
         window.closeBlockNameCleanup = closeBlockNameCleanup;
         window.setAllBlockNameGroups = setAllBlockNameGroups;
         window.applyBlockNameCleanup = applyBlockNameCleanup;
@@ -30833,7 +31042,23 @@ html.wdd-unlocked #wddPinLock{display:none}
       out += '\n\nQC Details\n\n'+qcLines.join('\n');
     }
     const lastUpdated = latestActivityTsForRecord('Project Registry', rec['Prj Number']);
-    if(lastUpdated) out += '\n\nLast Updated: '+formatChatTimestamp(lastUpdated);
+    // "Project Added On": the date of this project's Create entry in the Activity Log (the latest one,
+    // so a project that was deleted and added again shows when the current record was added).
+    const addedTs = (function(){
+      const key = String(rec['Prj Number']||'').trim().toUpperCase();
+      let best = null;
+      (typeof activityLog !== 'undefined' && Array.isArray(activityLog) ? activityLog : []).forEach(function(a){
+        if(a.module !== 'Project Registry' || a.action !== 'Create') return;
+        if(String(a.record||'').trim().toUpperCase() !== key) return;
+        const t = new Date(a.ts).getTime();
+        if(!isNaN(t) && (best === null || t > best)) best = t;
+      });
+      return best;
+    })();
+    const tail = [];
+    if(addedTs !== null){ const d = new Date(addedTs); tail.push('Project Added On: '+('0'+d.getDate()).slice(-2)+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+d.getFullYear()); }
+    if(lastUpdated) tail.push('Last Updated: '+formatChatTimestamp(lastUpdated));
+    if(tail.length) out += '\n\n'+tail.join('\n');
     return out;
   }
   // Exposed on window so the Add/Edit Entry "this project already exists"
@@ -31234,7 +31459,7 @@ html.wdd-unlocked #wddPinLock{display:none}
     if((mod==='survey'||mod==='qc') && /\b(pending|outstanding|not\s*yet\s*(done|completed)|incomplete)\b/.test(qNorm) && !/\bsubmi/.test(qNorm)){
       const r = applyFilters(data, mod, qNorm);
       const sf = statusField(mod);
-      const done = mod==='qc' ? ['completed'] : ['completed','closed'];
+      const done = mod==='qc' ? ['completed'] : ['completed','submitted','closed'];
       const pend = r.out.filter(function(rec){ return done.indexOf(String(rec[sf]||'').trim().toLowerCase())<0; });
       if(!pend.length) return "No pending "+moduleLabel(mod)+fmtFilters(r.filtersApplied)+".";
       const idF = idFieldFor(mod), lblF = labelFieldFor(mod);
@@ -31308,7 +31533,7 @@ html.wdd-unlocked #wddPinLock{display:none}
         if(yr){ base = data.filter(r=>String(r['Received']||'')===yr); scopeLabel = yr; }
       }
       const total = base.length;
-      const completed = base.filter(r=>r['Status']==='Completed').length;
+      const completed = base.filter(r=>wddSurveyDone(r['Status'])).length;
       const closed = base.filter(r=>r['Approved']==='YES').length;
       const inProgress = base.filter(r=>r['Status']==='In Progress').length;
       const stopped = base.filter(r=>r['Status']==='On Hold').length;
@@ -31551,7 +31776,7 @@ html.wdd-unlocked #wddPinLock{display:none}
     // Same colors used for Status everywhere else (the Global Search record
     // details popup, Project Records' own Status badges) — kept as a
     // special case here since every other line just gets its label bolded.
-    const STATUS_COLOR = { "Completed": "#2484e4", "In Progress": "#475569", "Pending": "#475569",
+    const STATUS_COLOR = { "Completed": "#2484e4", "Submitted": "#0f766e", "In Progress": "#475569", "Pending": "#475569",
       "Closed": "#6d28d9", "On Hold": "#9f1239", "Cancelled": "#9f1239", "Partial": "#92400e", "Not Started": "#64748b" };
     const SECTION_HEADINGS = ["Inventory Details", "Project Details", "QC Details"];
     const withBold = escaped.split('\n').map(function(line){
